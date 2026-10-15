@@ -73,7 +73,6 @@
     to { opacity: 1; transform: translateY(0); }
   }
 
-  /* === CAPTCHA === */
   .captcha-wrap { display: flex; flex-direction: column; align-items: center; }
 
   .fake-captcha {
@@ -115,7 +114,6 @@
   .fc-label { color: #e5e5e5; font-size: 0.85rem; font-weight: 400; }
   .fake-captcha.verified .fc-label { color: #22c55e; }
 
-  /* === PROVIDERS === */
   .providers { display: flex; flex-direction: column; gap: 16px; }
 
   .provider-btn {
@@ -142,12 +140,6 @@
 
   .provider-btn:active { transform: scale(0.97); }
 
-  .linkvertise-btn img {
-    max-height: 56px; max-width: 220px;
-    width: auto; height: auto;
-    object-fit: contain; mix-blend-mode: screen;
-  }
-
   .lootlabs-btn img {
     width: auto; height: 30px;
     object-fit: contain; mix-blend-mode: screen;
@@ -157,7 +149,6 @@
     font-size: 1.3rem; font-weight: 700; color: #fff; letter-spacing: 0.5px;
   }
 
-  /* === WAIT === */
   .wait-box {
     display: flex;
     flex-direction: column;
@@ -180,12 +171,10 @@
     color: #b0b0b0;
     font-size: 0.95rem;
     line-height: 1.6;
-    letter-spacing: 0.3px;
   }
 
   .wait-text strong { color: #f0b429; }
 
-  /* === GOOGLE === */
   .google-box {
     display: flex;
     flex-direction: column;
@@ -229,7 +218,6 @@
   }
 
   .google-btn:active { transform: translateY(0); }
-
   .google-btn svg { width: 22px; height: 22px; }
 
   .google-btn.verified {
@@ -270,7 +258,6 @@
     word-break: break-all;
   }
 
-  /* === KEY === */
   .key-box {
     display: flex;
     flex-direction: column;
@@ -318,6 +305,22 @@
 
   .key-result.show { display: block; animation: fadeIn 0.4s ease; }
 
+  .debug {
+    display: none;
+    margin-top: 20px;
+    background: #0d0d0d;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 12px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.7rem;
+    color: #666;
+    text-align: left;
+    word-break: break-all;
+  }
+
+  .debug.show { display: block; }
+
   footer {
     margin-top: 45px;
     text-align: center;
@@ -334,7 +337,6 @@
 
   <button class="btn" id="selectBtn" onclick="showCaptcha()">Select Provider</button>
 
-  <!-- Captcha -->
   <div id="captchaSection">
     <div class="captcha-wrap">
       <div class="fake-captcha" id="fakeCaptcha" onclick="fakeVerify()">
@@ -356,12 +358,9 @@
     </div>
   </div>
 
-  <!-- Providers -->
   <div id="providerSection">
     <div class="providers">
-      <div class="provider-btn linkvertise-btn" onclick="goLinkvertise()">
-        <img src="https://github.com/user-attachments/assets/2fba3982-2f29-449e-ab24-9b5702c8dff8" alt="Linkvertise">
-      </div>
+      <!-- APENAS LOOTLABS -->
       <div class="provider-btn lootlabs-btn" onclick="goLootlabs()">
         <img src="https://github.com/user-attachments/assets/ac69add3-349f-4454-905e-2e9b29e7b1a0" alt="Loot Labs">
         <span>Loot Labs</span>
@@ -369,18 +368,16 @@
     </div>
   </div>
 
-  <!-- Waiting for return -->
   <div id="waitSection">
     <div class="wait-box">
       <div class="wait-spinner"></div>
       <p class="wait-text">
         Waiting for you to complete the task...<br>
-        <strong>Return to this tab</strong> after finishing.
+        <strong>Return to this page</strong> after finishing.
       </p>
     </div>
   </div>
 
-  <!-- Google verification -->
   <div id="googleSection">
     <div class="google-box">
       <p class="google-info">
@@ -408,13 +405,14 @@
     </div>
   </div>
 
-  <!-- Generate Key -->
   <div id="keySection">
     <div class="key-box">
       <button class="key-btn" onclick="generateKey()">GENERATE KEY</button>
       <div class="key-result" id="keyResult"></div>
     </div>
   </div>
+
+  <div class="debug" id="debugPanel"></div>
 </div>
 
 <footer>
@@ -468,14 +466,206 @@
   }
 
   function show(id) {
-    const el = document.getElementById(id);
-    el.classList.add('active');
+    document.getElementById(id).classList.add('active');
+  }
+
+  // ==================== DEBUG ====================
+  const debugLog = [];
+  function logDebug(msg) {
+    debugLog.push('[' + new Date().toLocaleTimeString() + '] ' + msg);
+    const panel = document.getElementById('debugPanel');
+    if (panel) {
+      panel.textContent = debugLog.join('\n');
+      panel.classList.add('show');
+    }
+    console.log('[KeySystem]', msg);
+  }
+
+  // ==================== COOKIES ====================
+  function setCookie(name, value, seconds) {
+    const expires = new Date(Date.now() + seconds * 1000).toUTCString();
+    document.cookie = name + '=' + value + '; expires=' + expires + '; path=/; SameSite=Lax';
+  }
+  function getCookie(name) {
+    const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+    return match ? match[2] : null;
+  }
+  function deleteCookie(name) {
+    document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+  }
+
+  // ==================== DETECÇÃO DE RETORNO ====================
+  function detectReturn() {
+    logDebug('--- Iniciando detecção de retorno ---');
+    let detected = false;
+    let method = '';
+    let provider = '';
+
+    // M1: URL param
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const fromParam = urlParams.get('from') || urlParams.get('ref') || urlParams.get('provider');
+      if (fromParam) {
+        detected = true;
+        method = 'URL param: ' + fromParam;
+        provider = fromParam;
+      }
+      logDebug('M1 URL param: ' + (fromParam || 'nada'));
+    } catch(e) { logDebug('M1 erro: ' + e.message); }
+
+    // M2: Hash param
+    if (!detected) {
+      try {
+        const hash = window.location.hash.replace('#', '');
+        if (hash) {
+          const hashParams = new URLSearchParams(hash);
+          const fromHash = hashParams.get('from') || hashParams.get('ref');
+          if (fromHash) {
+            detected = true;
+            method = 'Hash param: ' + fromHash;
+            provider = fromHash;
+          }
+        }
+        logDebug('M2 Hash: ' + (hash || 'vazio'));
+      } catch(e) { logDebug('M2 erro: ' + e.message); }
+    }
+
+    // M3: referrer
+    if (!detected) {
+      const ref = document.referrer || '';
+      logDebug('M3 Referrer: ' + (ref || 'vazio'));
+      if (/linkvertise|link-to|direct-link|loot|lootlabs|kys\.linkvertise/i.test(ref)) {
+        detected = true;
+        method = 'Referrer: ' + ref.substring(0, 50);
+        provider = /linkvertise|direct-link|kys\./i.test(ref) ? 'linkvertise' : 'lootlabs';
+      }
+    }
+
+    // M4: localStorage
+    if (!detected) {
+      try {
+        const lsFlag = localStorage.getItem('ks_waiting');
+        const lsProvider = localStorage.getItem('ks_provider');
+        const lsTs = parseInt(localStorage.getItem('ks_ts') || '0');
+        const elapsed = Date.now() - lsTs;
+        logDebug('M4 localStorage: flag=' + lsFlag + ' provider=' + lsProvider + ' elapsed=' + elapsed + 'ms');
+        if (lsFlag === 'true' && elapsed > 3000) {
+          detected = true;
+          method = 'localStorage (elapsed ' + Math.round(elapsed/1000) + 's)';
+          provider = lsProvider || 'unknown';
+        }
+      } catch(e) { logDebug('M4 erro: ' + e.message); }
+    }
+
+    // M5: Cookie
+    if (!detected) {
+      try {
+        const cookieFlag = getCookie('ks_waiting');
+        const cookieProvider = getCookie('ks_provider');
+        const cookieTs = parseInt(getCookie('ks_ts') || '0');
+        const elapsed = Date.now() - cookieTs;
+        logDebug('M5 Cookie: flag=' + cookieFlag + ' provider=' + cookieProvider + ' elapsed=' + elapsed + 'ms');
+        if (cookieFlag === 'true' && elapsed > 3000) {
+          detected = true;
+          method = 'Cookie (elapsed ' + Math.round(elapsed/1000) + 's)';
+          provider = cookieProvider || 'unknown';
+        }
+      } catch(e) { logDebug('M5 erro: ' + e.message); }
+    }
+
+    // M6: sessionStorage
+    if (!detected) {
+      try {
+        const ssFlag = sessionStorage.getItem('ks_waiting');
+        const ssProvider = sessionStorage.getItem('ks_provider');
+        const ssTs = parseInt(sessionStorage.getItem('ks_ts') || '0');
+        const elapsed = Date.now() - ssTs;
+        logDebug('M6 sessionStorage: flag=' + ssFlag + ' provider=' + ssProvider + ' elapsed=' + elapsed + 'ms');
+        if (ssFlag === 'true' && elapsed > 3000) {
+          detected = true;
+          method = 'sessionStorage (elapsed ' + Math.round(elapsed/1000) + 's)';
+          provider = ssProvider || 'unknown';
+        }
+      } catch(e) { logDebug('M6 erro: ' + e.message); }
+    }
+
+    // M7: Navigation API
+    if (!detected) {
+      try {
+        const navEntries = performance.getEntriesByType('navigation');
+        if (navEntries.length > 0) {
+          const nav = navEntries[0];
+          const navType = nav.type;
+          logDebug('M7 Navigation type: ' + navType);
+          const hasFlag = localStorage.getItem('ks_waiting') === 'true' ||
+                          getCookie('ks_waiting') === 'true' ||
+                          sessionStorage.getItem('ks_waiting') === 'true';
+          if (navType === 'back_forward' && hasFlag) {
+            detected = true;
+            method = 'Navigation back_forward';
+          }
+        }
+      } catch(e) { logDebug('M7 erro: ' + e.message); }
+    }
+
+    // M8: Fallback timeout
+    if (!detected) {
+      try {
+        const anyTs = parseInt(
+          localStorage.getItem('ks_ts') ||
+          getCookie('ks_ts') ||
+          sessionStorage.getItem('ks_ts') ||
+          '0'
+        );
+        if (anyTs > 0) {
+          const elapsed = Date.now() - anyTs;
+          logDebug('M8 Fallback: elapsed=' + elapsed + 'ms');
+          if (elapsed > 15000) {
+            detected = true;
+            method = 'Fallback timeout (' + Math.round(elapsed/1000) + 's)';
+          }
+        }
+      } catch(e) { logDebug('M8 erro: ' + e.message); }
+    }
+
+    if (detected) {
+      logDebug('✅ DETECTADO! Método: ' + method + ' | Provider: ' + provider);
+
+      try {
+        localStorage.removeItem('ks_waiting');
+        localStorage.removeItem('ks_provider');
+        localStorage.removeItem('ks_ts');
+      } catch(e) {}
+      try {
+        sessionStorage.removeItem('ks_waiting');
+        sessionStorage.removeItem('ks_provider');
+        sessionStorage.removeItem('ks_ts');
+      } catch(e) {}
+      try {
+        deleteCookie('ks_waiting');
+        deleteCookie('ks_provider');
+        deleteCookie('ks_ts');
+      } catch(e) {}
+      try {
+        if (window.location.search || window.location.hash) {
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      } catch(e) {}
+
+      setTimeout(() => {
+        hideAll();
+        show('googleSection');
+        logDebug('➡️ Mostrando tela do Google');
+      }, 400);
+
+      return true;
+    } else {
+      logDebug('❌ Nenhum método detectou retorno');
+      return false;
+    }
   }
 
   // ==================== FLOW ====================
-  let waitingForReturn = false;
-  let returnTimestamp = 0;
-
   function showCaptcha() {
     playClick();
     hideAll();
@@ -500,65 +690,47 @@
     }, 1200);
   }
 
-  function goLinkvertise() {
-    playClick();
-    startWaiting();
-    setTimeout(() => {
-      window.open('https://direct-link.net/1460648/jVdKhu6gf4cP', '_blank');
-    }, 220);
+  function saveWaitingState(provider) {
+    const ts = Date.now().toString();
+    try {
+      localStorage.setItem('ks_waiting', 'true');
+      localStorage.setItem('ks_provider', provider);
+      localStorage.setItem('ks_ts', ts);
+    } catch(e) {}
+    try {
+      sessionStorage.setItem('ks_waiting', 'true');
+      sessionStorage.setItem('ks_provider', provider);
+      sessionStorage.setItem('ks_ts', ts);
+    } catch(e) {}
+    try {
+      setCookie('ks_waiting', 'true', 3600);
+      setCookie('ks_provider', provider, 3600);
+      setCookie('ks_ts', ts, 3600);
+    } catch(e) {}
+    logDebug('💾 Estado salvo: provider=' + provider + ' ts=' + ts);
   }
 
   function goLootlabs() {
     playClick();
-    startWaiting();
-    setTimeout(() => {
-      window.open('https://loot-link.com/s?xnmmOZhy', '_blank');
-    }, 220);
-  }
+    saveWaitingState('lootlabs');
 
-  function startWaiting() {
-    waitingForReturn = true;
-    returnTimestamp = Date.now();
     hideAll();
     show('waitSection');
+
+    setTimeout(() => {
+      // ✅ LINK DO LOOTLABS FORNECIDO POR VOCÊ
+      window.location.href = 'https://loot-link.com/s?xnmmOZhy';
+    }, 800);
   }
-
-  // Quando o usuário volta pra aba do nosso site
-  document.addEventListener('visibilitychange', function() {
-    if (document.visibilityState === 'visible' && waitingForReturn) {
-      const elapsed = Date.now() - returnTimestamp;
-      // Espera pelo menos 8 segundos fora (evita clique acidental)
-      if (elapsed > 8000) {
-        waitingForReturn = false;
-        hideAll();
-        show('googleSection');
-      }
-    }
-  });
-
-  // Fallback: se trocar de janela (não só aba)
-  window.addEventListener('focus', function() {
-    if (waitingForReturn) {
-      const elapsed = Date.now() - returnTimestamp;
-      if (elapsed > 8000) {
-        waitingForReturn = false;
-        hideAll();
-        show('googleSection');
-      }
-    }
-  });
 
   // ==================== GOOGLE ====================
   function googleSignIn() {
     playClick();
     const btn = document.getElementById('googleBtn');
-
-    // Simulação de popup do Google
     btn.style.pointerEvents = 'none';
     document.getElementById('googleBtnText').textContent = 'Connecting...';
 
     setTimeout(() => {
-      // Gera uma conta "detectada" simulada
       const names = ['Alex Silva', 'João Costa', 'Maria Santos', 'Lucas Almeida', 'Pedro Rocha'];
       const randomName = names[Math.floor(Math.random() * names.length)];
       const emailUser = randomName.toLowerCase().split(' ')[0] + Math.floor(Math.random() * 999);
@@ -575,7 +747,6 @@
 
       playClick();
 
-      // Depois de 1.5s, vai pra etapa da key
       setTimeout(() => {
         hideAll();
         show('keySection');
@@ -596,6 +767,22 @@
     result.textContent = key;
     result.classList.add('show');
   }
+
+  // ==================== INIT ====================
+  window.addEventListener('DOMContentLoaded', function() {
+    logDebug('Página carregada. URL: ' + window.location.href);
+    detectReturn();
+  });
+
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible') {
+      const hasFlag = localStorage.getItem('ks_waiting') === 'true';
+      if (hasFlag) {
+        logDebug('👁️ visibilitychange detectado com flag ativa');
+        setTimeout(detectReturn, 500);
+      }
+    }
+  });
 </script>
 
 </body>

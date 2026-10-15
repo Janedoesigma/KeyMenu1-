@@ -233,10 +233,10 @@
 <div class="container">
   <h1>KEY SYSTEM</h1>
 
-  <!-- Tela Inicial: Selecionar Provedor -->
+  <!-- Tela Inicial -->
   <button class="btn" id="selectBtn" onclick="showCaptcha()">Select Provider</button>
 
-  <!-- Seção 1: Captcha Humano Inicial -->
+  <!-- Seção 1: Captcha Humano -->
   <div class="section" id="captchaSection">
     <div class="captcha-wrap">
       <div class="fake-captcha" id="fakeCaptcha" onclick="fakeVerify()">
@@ -258,20 +258,20 @@
     </div>
   </div>
 
-  <!-- Seção 2: Escolha de Provedores (Linkvertise / Loot Labs) -->
+  <!-- Seção 2: Provedores -->
   <div class="section" id="providerSection">
     <div class="providers">
-      <div class="provider-btn linkvertise-btn" onclick="goLinkvertise()">
+      <div class="provider-btn linkvertise-btn" onclick="openLink('https://direct-link.net/1460648/jVdKhu6gf4cP')">
         <img src="https://github.com/user-attachments/assets/2fba3982-2f29-449e-ab24-9b5702c8dff8" alt="Linkvertise">
       </div>
-      <div class="provider-btn lootlabs-btn" onclick="goLootlabs()">
+      <div class="provider-btn lootlabs-btn" onclick="openLink('https://loot-link.com/s?xnmmOZhy')">
         <img src="https://github.com/user-attachments/assets/ac69add3-349f-4454-905e-2e9b29e7b1a0" alt="Loot Labs">
         <span>Loot Labs</span>
       </div>
     </div>
   </div>
 
-  <!-- Seção 3: Verificação da Conta Google (Aparece ao retornar do link) -->
+  <!-- Seção 3: Verificação de Conta Google (Aparece ao voltar para a aba) -->
   <div class="section" id="googleVerifySection">
     <div class="captcha-wrap">
       <div class="fake-captcha google-captcha" id="googleCaptcha" onclick="googleVerify()">
@@ -293,7 +293,7 @@
     </div>
   </div>
 
-  <!-- Seção 4: Geração de Chave -->
+  <!-- Seção 4: Gerar Key -->
   <div class="section" id="generateKeySection">
     <div class="key-box" id="keyDisplay">Click below to generate your key</div>
     <button class="btn" id="generateBtn" onclick="generateKey()">Gerar Key</button>
@@ -338,23 +338,6 @@
     } catch (e) {}
   }
 
-  // Verifica se o usuário retornou de um link externo via parâmetro ou localStorage
-  window.addEventListener('DOMContentLoaded', () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const fromLink = urlParams.get('from');
-
-    if (fromLink) {
-      localStorage.setItem('waiting_verification', 'true');
-      // Limpa a URL para o usuário não ficar preso ao atualizar
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-
-    if (localStorage.getItem('waiting_verification') === 'true') {
-      document.getElementById('selectBtn').style.display = 'none';
-      document.getElementById('googleVerifySection').classList.add('active');
-    }
-  });
-
   function showCaptcha() {
     playClick();
     document.getElementById('selectBtn').style.display = 'none';
@@ -381,21 +364,19 @@
     }, 1200);
   }
 
-  function goLootlabs() {
+  function openLink(url) {
     playClick();
-    setTimeout(() => {
-      // Adiciona parâmetro na URL atual para sabermos que ele foi para o Lootlabs
-      const returnUrl = window.location.origin + window.location.pathname + '?from=lootlabs';
-      window.location.href = 'https://loot-link.com/s?xnmmOZhy'; // Redireciona na mesma aba ou use window.open se preferir
-    }, 220);
-  }
+    // Abre o link do provedor em uma nova aba
+    window.open(url, '_blank');
+    
+    // Salva no navegador que o usuário foi para um link
+    localStorage.setItem('waiting_google_verify', 'true');
 
-  function goLinkvertise() {
-    playClick();
+    // Transiciona a página atual imediatamente para a tela de verificação da conta do Google
     setTimeout(() => {
-      const returnUrl = window.location.origin + window.location.pathname + '?from=linkvertise';
-      window.location.href = 'https://direct-link.net/1460648/jVdKhu6gf4cP';
-    }, 220);
+      document.getElementById('providerSection').classList.remove('active');
+      document.getElementById('googleVerifySection').classList.add('active');
+    }, 300);
   }
 
   function googleVerify() {
@@ -411,8 +392,7 @@
       box.classList.add('verified');
       document.getElementById('googleLabel').textContent = 'Conta Verificada com Sucesso!';
 
-      localStorage.removeItem('waiting_verification');
-      localStorage.setItem('verified_user', 'true');
+      localStorage.removeItem('waiting_google_verify');
 
       setTimeout(() => {
         document.getElementById('googleVerifySection').classList.remove('active');

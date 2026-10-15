@@ -61,12 +61,12 @@
 
   .btn:active { transform: translateY(0) scale(0.98); }
 
-  #captchaSection, #providerSection {
+  .section {
     display: none;
     margin-top: 25px;
   }
 
-  #captchaSection.active, #providerSection.active {
+  .section.active {
     display: block;
     animation: fadeIn 0.5s ease;
   }
@@ -136,17 +136,20 @@
     position: absolute;
   }
 
-  #fcSpinner { display: none; }
-  #fcCheck { display: none; }
+  #fcSpinner, #googleSpinner { display: none; }
+  #fcCheck, #googleCheck { display: none; }
 
   .fake-captcha.verifying #fcSpinner { display: block; }
   .fake-captcha.verified #fcCheck { display: block; }
+  .google-captcha.verifying #googleSpinner { display: block; }
+  .google-captcha.verified #googleCheck { display: block; }
 
   .fc-label {
     color: #e5e5e5;
     font-size: 0.85rem;
     letter-spacing: 0.2px;
     font-weight: 400;
+    text-align: left;
   }
 
   .fake-captcha.verified .fc-label { color: #22c55e; }
@@ -181,7 +184,6 @@
 
   .provider-btn:active { transform: scale(0.97); }
 
-  /* Imagem grande (Linkvertise) */
   .linkvertise-btn img {
     max-height: 56px;
     max-width: 220px;
@@ -191,7 +193,6 @@
     mix-blend-mode: screen;
   }
 
-  /* Imagem pequena (Loot Labs) */
   .lootlabs-btn img {
     width: auto;
     height: 30px;
@@ -199,12 +200,23 @@
     mix-blend-mode: screen;
   }
 
-  /* Texto ao lado da imagem */
   .lootlabs-btn span {
     font-size: 1.3rem;
     font-weight: 700;
     color: #fff;
     letter-spacing: 0.5px;
+  }
+
+  .key-box {
+    background: #1f1f1f;
+    border: 1px solid #444;
+    border-radius: 8px;
+    padding: 12px;
+    font-family: monospace;
+    color: #22c55e;
+    font-size: 0.9rem;
+    word-break: break-all;
+    margin-bottom: 15px;
   }
 
   footer {
@@ -221,9 +233,11 @@
 <div class="container">
   <h1>KEY SYSTEM</h1>
 
+  <!-- Tela Inicial: Selecionar Provedor -->
   <button class="btn" id="selectBtn" onclick="showCaptcha()">Select Provider</button>
 
-  <div id="captchaSection">
+  <!-- Seção 1: Captcha Humano Inicial -->
+  <div class="section" id="captchaSection">
     <div class="captcha-wrap">
       <div class="fake-captcha" id="fakeCaptcha" onclick="fakeVerify()">
         <div class="fc-checkbox" id="fcCheckbox">
@@ -244,18 +258,46 @@
     </div>
   </div>
 
-  <div id="providerSection">
+  <!-- Seção 2: Escolha de Provedores (Linkvertise / Loot Labs) -->
+  <div class="section" id="providerSection">
     <div class="providers">
-      <!-- Botão 1: Linkvertise (imagem grande) -->
       <div class="provider-btn linkvertise-btn" onclick="goLinkvertise()">
         <img src="https://github.com/user-attachments/assets/2fba3982-2f29-449e-ab24-9b5702c8dff8" alt="Linkvertise">
       </div>
-      <!-- Botão 2: Loot Labs (imagem pequena + texto) -->
       <div class="provider-btn lootlabs-btn" onclick="goLootlabs()">
         <img src="https://github.com/user-attachments/assets/ac69add3-349f-4454-905e-2e9b29e7b1a0" alt="Loot Labs">
         <span>Loot Labs</span>
       </div>
     </div>
+  </div>
+
+  <!-- Seção 3: Verificação da Conta Google (Aparece ao retornar do link) -->
+  <div class="section" id="googleVerifySection">
+    <div class="captcha-wrap">
+      <div class="fake-captcha google-captcha" id="googleCaptcha" onclick="googleVerify()">
+        <div class="fc-checkbox" id="googleCheckbox">
+          <svg class="fc-spinner" viewBox="0 0 50 50" id="googleSpinner">
+            <circle cx="25" cy="25" r="20" fill="none" stroke="#f0b429" stroke-width="5"
+                    stroke-dasharray="90 150" stroke-linecap="round">
+              <animateTransform attributeName="transform" type="rotate"
+                                from="0 25 25" to="360 25 25" dur="0.9s" repeatCount="indefinite"/>
+            </circle>
+          </svg>
+          <svg class="fc-check" viewBox="0 0 24 24" id="googleCheck">
+            <path d="M5 13l4 4L19 7" fill="none" stroke="#22c55e" stroke-width="3"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <span class="fc-label" id="googleLabel">Verificar Conta Google</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Seção 4: Geração de Chave -->
+  <div class="section" id="generateKeySection">
+    <div class="key-box" id="keyDisplay">Click below to generate your key</div>
+    <button class="btn" id="generateBtn" onclick="generateKey()">Gerar Key</button>
+    <button class="btn" id="copyBtn" onclick="copyKey()" style="margin-top: 10px; display: none; background: linear-gradient(145deg, #166534, #14532d);">Copiar Key</button>
   </div>
 </div>
 
@@ -293,23 +335,25 @@
 
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + 0.2);
-
-      const osc2 = ctx.createOscillator();
-      const gain2 = ctx.createGain();
-      osc2.type = 'sine';
-      osc2.frequency.setValueAtTime(880, ctx.currentTime);
-      osc2.frequency.exponentialRampToValueAtTime(660, ctx.currentTime + 0.1);
-
-      gain2.gain.setValueAtTime(0.0001, ctx.currentTime);
-      gain2.gain.exponentialRampToValueAtTime(0.025, ctx.currentTime + 0.008);
-      gain2.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.12);
-
-      osc2.connect(gain2);
-      gain2.connect(ctx.destination);
-      osc2.start(ctx.currentTime);
-      osc2.stop(ctx.currentTime + 0.15);
     } catch (e) {}
   }
+
+  // Verifica se o usuário retornou de um link externo via parâmetro ou localStorage
+  window.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const fromLink = urlParams.get('from');
+
+    if (fromLink) {
+      localStorage.setItem('waiting_verification', 'true');
+      // Limpa a URL para o usuário não ficar preso ao atualizar
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    if (localStorage.getItem('waiting_verification') === 'true') {
+      document.getElementById('selectBtn').style.display = 'none';
+      document.getElementById('googleVerifySection').classList.add('active');
+    }
+  });
 
   function showCaptcha() {
     playClick();
@@ -331,30 +375,77 @@
       document.getElementById('fcLabel').textContent = 'Success!';
 
       setTimeout(() => {
-        onCaptchaSuccess('fake-token-' + Date.now());
+        document.getElementById('captchaSection').classList.remove('active');
+        document.getElementById('providerSection').classList.add('active');
       }, 400);
     }, 1200);
-  }
-
-  function onCaptchaSuccess(token) {
-    playClick();
-    console.log('Captcha token:', token);
-    document.getElementById('captchaSection').classList.remove('active');
-    document.getElementById('providerSection').classList.add('active');
   }
 
   function goLootlabs() {
     playClick();
     setTimeout(() => {
-      window.open('https://loot-link.com/s?xnmmOZhy', '_blank');
+      // Adiciona parâmetro na URL atual para sabermos que ele foi para o Lootlabs
+      const returnUrl = window.location.origin + window.location.pathname + '?from=lootlabs';
+      window.location.href = 'https://loot-link.com/s?xnmmOZhy'; // Redireciona na mesma aba ou use window.open se preferir
     }, 220);
   }
 
   function goLinkvertise() {
     playClick();
     setTimeout(() => {
-      window.open('https://direct-link.net/1460648/jVdKhu6gf4cP', '_blank');
+      const returnUrl = window.location.origin + window.location.pathname + '?from=linkvertise';
+      window.location.href = 'https://direct-link.net/1460648/jVdKhu6gf4cP';
     }, 220);
+  }
+
+  function googleVerify() {
+    const box = document.getElementById('googleCaptcha');
+    if (box.classList.contains('verifying') || box.classList.contains('verified')) return;
+
+    playClick();
+    box.classList.add('verifying');
+    document.getElementById('googleLabel').textContent = 'Verificando Conta Google...';
+
+    setTimeout(() => {
+      box.classList.remove('verifying');
+      box.classList.add('verified');
+      document.getElementById('googleLabel').textContent = 'Conta Verificada com Sucesso!';
+
+      localStorage.removeItem('waiting_verification');
+      localStorage.setItem('verified_user', 'true');
+
+      setTimeout(() => {
+        document.getElementById('googleVerifySection').classList.remove('active');
+        document.getElementById('generateKeySection').classList.add('active');
+      }, 600);
+    }, 1500);
+  }
+
+  function generateKey() {
+    playClick();
+    const baseKey = "%120KEYcbcfbabc8934678";
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$&";
+    let randomSuffix = "";
+    for (let i = 0; i < 20; i++) {
+      randomSuffix += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+
+    const finalKey = baseKey + randomSuffix;
+    document.getElementById('keyDisplay').textContent = finalKey;
+    document.getElementById('generateBtn').style.display = 'none';
+    document.getElementById('copyBtn').style.display = 'block';
+  }
+
+  function copyKey() {
+    playClick();
+    const keyText = document.getElementById('keyDisplay').textContent;
+    navigator.clipboard.writeText(keyText).then(() => {
+      const copyBtn = document.getElementById('copyBtn');
+      copyBtn.textContent = 'Copiado!';
+      setTimeout(() => {
+        copyBtn.textContent = 'Copiar Key';
+      }, 2000);
+    });
   }
 </script>
 

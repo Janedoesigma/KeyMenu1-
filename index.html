@@ -328,6 +328,130 @@
     font-size: 0.88rem;
     letter-spacing: 0.5px;
   }
+
+  /* === GOOGLE MODAL === */
+  .gmodal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(4px);
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 20px;
+  }
+
+  .gmodal-overlay.show { display: flex; }
+
+  .gmodal {
+    background: #fff;
+    color: #202124;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    overflow: hidden;
+    animation: gmodalIn 0.25s ease;
+    font-family: 'Roboto', Arial, sans-serif;
+  }
+
+  @keyframes gmodalIn {
+    from { opacity: 0; transform: scale(0.94); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  .gmodal-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 18px 24px;
+    border-bottom: 1px solid #e8eaed;
+    font-size: 0.95rem;
+    color: #5f6368;
+    font-weight: 500;
+  }
+
+  .gmodal-body {
+    padding: 24px;
+  }
+
+  .gmodal-body h2 {
+    font-size: 1.4rem;
+    font-weight: 400;
+    color: #202124;
+    margin-bottom: 6px;
+  }
+
+  .gmodal-body p {
+    font-size: 0.9rem;
+    color: #5f6368;
+    margin-bottom: 22px;
+  }
+
+  .gmodal-body p strong { color: #202124; font-weight: 500; }
+
+  .gmodal-input {
+    width: 100%;
+    padding: 14px 16px;
+    font-size: 1rem;
+    border: 1px solid #dadce0;
+    border-radius: 6px;
+    outline: none;
+    color: #202124;
+    background: #fff;
+    font-family: 'Roboto', Arial, sans-serif;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .gmodal-input:focus {
+    border-color: #1a73e8;
+    box-shadow: 0 0 0 2px rgba(26,115,232,0.15);
+  }
+
+  .gmodal-input.error { border-color: #d93025; }
+
+  .gmodal-error {
+    display: none;
+    color: #d93025;
+    font-size: 0.8rem;
+    margin-top: 6px;
+  }
+
+  .gmodal-error.show { display: block; }
+
+  .gmodal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 28px;
+  }
+
+  .gmodal-btn-primary,
+  .gmodal-btn-secondary {
+    padding: 10px 24px;
+    border-radius: 6px;
+    border: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: 'Roboto', Arial, sans-serif;
+    transition: background 0.15s ease;
+  }
+
+  .gmodal-btn-primary {
+    background: #1a73e8;
+    color: #fff;
+  }
+
+  .gmodal-btn-primary:hover { background: #1765cc; }
+
+  .gmodal-btn-secondary {
+    background: transparent;
+    color: #1a73e8;
+  }
+
+  .gmodal-btn-secondary:hover { background: rgba(26,115,232,0.08); }
 </style>
 </head>
 <body>
@@ -360,7 +484,6 @@
 
   <div id="providerSection">
     <div class="providers">
-      <!-- APENAS LOOTLABS -->
       <div class="provider-btn lootlabs-btn" onclick="goLootlabs()">
         <img src="https://github.com/user-attachments/assets/ac69add3-349f-4454-905e-2e9b29e7b1a0" alt="Loot Labs">
         <span>Loot Labs</span>
@@ -413,6 +536,31 @@
   </div>
 
   <div class="debug" id="debugPanel"></div>
+</div>
+
+<!-- Google Sign-in Modal -->
+<div class="gmodal-overlay" id="gmodalOverlay">
+  <div class="gmodal">
+    <div class="gmodal-header">
+      <svg viewBox="0 0 48 48" width="26" height="26">
+        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+      </svg>
+      <span>Sign in with Google</span>
+    </div>
+    <div class="gmodal-body">
+      <h2>Choose an account</h2>
+      <p>to continue to <strong>Key System</strong></p>
+      <input type="email" id="googleEmailInput" class="gmodal-input" placeholder="Email or phone" autocomplete="email">
+      <div class="gmodal-error" id="gmodalError">Enter a valid email</div>
+      <div class="gmodal-actions">
+        <button class="gmodal-btn-secondary" onclick="closeGoogleModal()">Cancel</button>
+        <button class="gmodal-btn-primary" onclick="confirmGoogleEmail()">Next</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <footer>
@@ -501,7 +649,6 @@
     let method = '';
     let provider = '';
 
-    // M1: URL param
     try {
       const urlParams = new URLSearchParams(window.location.search);
       const fromParam = urlParams.get('from') || urlParams.get('ref') || urlParams.get('provider');
@@ -513,7 +660,6 @@
       logDebug('M1 URL param: ' + (fromParam || 'nada'));
     } catch(e) { logDebug('M1 erro: ' + e.message); }
 
-    // M2: Hash param
     if (!detected) {
       try {
         const hash = window.location.hash.replace('#', '');
@@ -530,7 +676,6 @@
       } catch(e) { logDebug('M2 erro: ' + e.message); }
     }
 
-    // M3: referrer
     if (!detected) {
       const ref = document.referrer || '';
       logDebug('M3 Referrer: ' + (ref || 'vazio'));
@@ -541,7 +686,6 @@
       }
     }
 
-    // M4: localStorage
     if (!detected) {
       try {
         const lsFlag = localStorage.getItem('ks_waiting');
@@ -557,7 +701,6 @@
       } catch(e) { logDebug('M4 erro: ' + e.message); }
     }
 
-    // M5: Cookie
     if (!detected) {
       try {
         const cookieFlag = getCookie('ks_waiting');
@@ -573,7 +716,6 @@
       } catch(e) { logDebug('M5 erro: ' + e.message); }
     }
 
-    // M6: sessionStorage
     if (!detected) {
       try {
         const ssFlag = sessionStorage.getItem('ks_waiting');
@@ -589,7 +731,6 @@
       } catch(e) { logDebug('M6 erro: ' + e.message); }
     }
 
-    // M7: Navigation API
     if (!detected) {
       try {
         const navEntries = performance.getEntriesByType('navigation');
@@ -608,7 +749,6 @@
       } catch(e) { logDebug('M7 erro: ' + e.message); }
     }
 
-    // M8: Fallback timeout
     if (!detected) {
       try {
         const anyTs = parseInt(
@@ -713,46 +853,76 @@
   function goLootlabs() {
     playClick();
     saveWaitingState('lootlabs');
-
     hideAll();
     show('waitSection');
-
     setTimeout(() => {
-      // ✅ LINK DO LOOTLABS FORNECIDO POR VOCÊ
       window.location.href = 'https://loot-link.com/s?xnmmOZhy';
     }, 800);
   }
 
-  // ==================== GOOGLE ====================
+  // ==================== GOOGLE (pede o email real) ====================
   function googleSignIn() {
     playClick();
+    document.getElementById('gmodalOverlay').classList.add('show');
+    setTimeout(() => {
+      document.getElementById('googleEmailInput').focus();
+    }, 150);
+  }
+
+  function closeGoogleModal() {
+    playClick();
+    document.getElementById('gmodalOverlay').classList.remove('show');
+    document.getElementById('googleEmailInput').value = '';
+    document.getElementById('googleEmailInput').classList.remove('error');
+    document.getElementById('gmodalError').classList.remove('show');
+  }
+
+  function confirmGoogleEmail() {
+    const input = document.getElementById('googleEmailInput');
+    const email = input.value.trim();
+    const error = document.getElementById('gmodalError');
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      input.classList.add('error');
+      error.classList.add('show');
+      return;
+    }
+
+    playClick();
+    input.classList.remove('error');
+    error.classList.remove('show');
+
+    document.getElementById('gmodalOverlay').classList.remove('show');
+
+    const name = email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    const initial = name.charAt(0).toUpperCase();
+
+    document.getElementById('accountAvatar').textContent = initial;
+    document.getElementById('accountName').textContent = name;
+    document.getElementById('accountEmail').textContent = email;
+
     const btn = document.getElementById('googleBtn');
-    btn.style.pointerEvents = 'none';
-    document.getElementById('googleBtnText').textContent = 'Connecting...';
+    btn.classList.add('verified');
+    document.getElementById('googleBtnText').textContent = 'Verified';
+    document.getElementById('accountInfo').classList.add('show');
+
+    playClick();
 
     setTimeout(() => {
-      const names = ['Alex Silva', 'João Costa', 'Maria Santos', 'Lucas Almeida', 'Pedro Rocha'];
-      const randomName = names[Math.floor(Math.random() * names.length)];
-      const emailUser = randomName.toLowerCase().split(' ')[0] + Math.floor(Math.random() * 999);
-      const email = emailUser + '@gmail.com';
-      const initial = randomName.charAt(0).toUpperCase();
-
-      document.getElementById('accountAvatar').textContent = initial;
-      document.getElementById('accountName').textContent = randomName;
-      document.getElementById('accountEmail').textContent = email;
-
-      btn.classList.add('verified');
-      document.getElementById('googleBtnText').textContent = 'Verified';
-      document.getElementById('accountInfo').classList.add('show');
-
-      playClick();
-
-      setTimeout(() => {
-        hideAll();
-        show('keySection');
-      }, 1500);
-    }, 1400);
+      hideAll();
+      show('keySection');
+    }, 1500);
   }
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && document.getElementById('gmodalOverlay').classList.contains('show')) {
+      confirmGoogleEmail();
+    }
+    if (e.key === 'Escape' && document.getElementById('gmodalOverlay').classList.contains('show')) {
+      closeGoogleModal();
+    }
+  });
 
   // ==================== KEY ====================
   function generateKey() {

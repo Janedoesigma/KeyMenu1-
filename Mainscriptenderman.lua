@@ -1,7 +1,7 @@
 --[[
     W-AZURE V3  |  by jane doe sigma
     UI: Fluent
-    Tabs: Main (Auto Farm Level + Auto Farm Chests + Auto Collect Fruit + Auto Store Fruit) / Config (Bring Mob + Fast Attack + settings)
+    Tabs: Main / Missions / Config
 ]]
 
 repeat task.wait() until game:IsLoaded()
@@ -14,8 +14,8 @@ local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/
 local Window = Fluent:CreateWindow({
 	Title = "W-AZURE V3",
 	SubTitle = "by jane doe sigma",
-	TabWidth = 160,
-	Size = UDim2.fromOffset(580, 460),
+	TabWidth = 140,
+	Size = UDim2.fromOffset(500, 400),
 	Acrylic = false,
 	Theme = "Dark",
 	MinimizeKey = Enum.KeyCode.LeftControl,
@@ -23,6 +23,7 @@ local Window = Fluent:CreateWindow({
 
 local Tabs = {
 	Main = Window:AddTab({ Title = "Main", Icon = "home" }),
+	Missions = Window:AddTab({ Title = "Missions", Icon = "target" }),
 	Config = Window:AddTab({ Title = "Config", Icon = "settings" }),
 }
 
@@ -91,13 +92,20 @@ local function ActivateHaki()
 	end
 end
 
+local function HasTool(name)
+	local char = LP.Character
+	if char and char:FindFirstChild(name) then return true end
+	local backpack = LP.Backpack
+	if backpack and backpack:FindFirstChild(name) then return true end
+	return false
+end
+
 local function EquipWeapon()
 	local backpack = LP.Backpack
 	local char = LP.Character
 	if not (backpack and char) then return end
 	local hum = char:FindFirstChildOfClass("Humanoid")
 	if not hum then return end
-	-- already equipped?
 	local held = char:FindFirstChildOfClass("Tool")
 	local wanted = Options.WeaponType and Options.WeaponType.Value or "Melee"
 	if held and held.ToolTip == wanted then return end
@@ -110,7 +118,7 @@ local function EquipWeapon()
 end
 
 ----------------------------------------------------------------
--- Tween
+-- Tween (anti-gravity holder fixed)
 ----------------------------------------------------------------
 local ActiveTween, ActiveBV
 
@@ -122,18 +130,22 @@ end
 local function TweenTo(cf)
 	local root = GetRoot()
 	if not root then return end
-	local speed = tonumber(Options.TweenSpeed and Options.TweenSpeed.Value) or 300
-	if speed <= 0 then speed = 300 end
+	local speed = tonumber(Options.TweenSpeed and Options.TweenSpeed.Value) or 210
+	if speed <= 0 then speed = 210 end
 
-	-- world/island teleport when target is very far (requestEntrance)
-	local dist = (root.Position - cf.Position).Magnitude
-	if dist < 5 then StopTween() return end
-
+	-- Keep the anti-gravity holder alive while farming so the player never falls
 	if not ActiveBV or not ActiveBV.Parent then
 		ActiveBV = Instance.new("BodyVelocity")
 		ActiveBV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
 		ActiveBV.Velocity = Vector3.zero
 		ActiveBV.Parent = root
+	end
+
+	local dist = (root.Position - cf.Position).Magnitude
+	if dist < 5 then
+		-- Close enough: keep the player held in place instead of dropping
+		if ActiveTween then ActiveTween:Cancel() ActiveTween = nil end
+		return
 	end
 
 	if ActiveTween then ActiveTween:Cancel() end
@@ -153,6 +165,8 @@ local function AnyFarmActive()
 		or (Options.AutoFarmNearest and Options.AutoFarmNearest.Value)
 		or (Options.AutoFarmChest and Options.AutoFarmChest.Value)
 		or (Options.AutoCollectFruit and Options.AutoCollectFruit.Value)
+		or (Options.AutoEliteBoss and Options.AutoEliteBoss.Value)
+		or (Options.AutoYama and Options.AutoYama.Value)
 end
 
 RunService.Stepped:Connect(function()
@@ -204,7 +218,6 @@ local function IsQuestOn()
 	return gui and gui.Frame.Visible or false
 end
 
--- returns { Num, CFrame, Task, Quest, Level, Mob }
 local function GetQuestInfo()
 	local level = LP.Data.Level.Value
 	local team = tostring(LP.Team)
@@ -234,7 +247,6 @@ local function GetQuestInfo()
 		return pack()
 	end
 
-	-- find the correct NPC/level range
 	reqLevel = 0
 	for npc, data in pairs(require(RS.GuideModule).Data.NPCList) do
 		local levels = data.Levels
@@ -248,7 +260,6 @@ local function GetQuestInfo()
 		end
 	end
 
-	-- cross-world/island entrances (First Sea)
 	if root and cf then
 		local mag = (cf.Position - root.Position).Magnitude
 		if level >= 375 and level <= 449 and mag > 3000 then
@@ -260,7 +271,6 @@ local function GetQuestInfo()
 		end
 	end
 
-	-- quest & mob name via Quests module
 	local Quests = require(RS.Quests)
 	for qName, quest in pairs(Quests) do
 		if qName ~= "CitizenQuest" then
@@ -277,7 +287,6 @@ local function GetQuestInfo()
 		end
 	end
 
-	-- special corrections
 	if questName == "ImpelQuest" then
 		questName, num = "PrisonerQuest", 2
 		taskKey, mobName = "Dangerous Prisoner", "Dangerous Prisoner"
@@ -296,7 +305,6 @@ local function GetQuestInfo()
 	return pack()
 end
 
--- walk to mob spawn points when the mob has not spawned yet
 local SpawnIndex = 1
 local function GoToSpawn(mobName)
 	local folder = RS:FindFirstChild("FortBuilderReplicatedSpawnPositionsFolder")
@@ -449,14 +457,14 @@ task.spawn(function()
 end)
 
 ----------------------------------------------------------------
--- Engage (attack mob by positioning above it)
+-- Engage
 ----------------------------------------------------------------
 local function EngageEnemy(mob, flagName)
 	local hrp = mob and mob:FindFirstChild("HumanoidRootPart")
 	if not hrp then return end
 	local cf = hrp.CFrame
 
-	while not Unloaded and Options[flagName].Value and mob.Parent and IsAlive(mob) do
+	while not Unloaded and Options[flagName] and Options[flagName].Value and mob.Parent and IsAlive(mob) do
 		RunService.Heartbeat:Wait()
 		EquipWeapon()
 		ActivateHaki()
@@ -499,14 +507,13 @@ tgLevel:OnChanged(function()
 end)
 
 CreateLoop("AutoFarmLevel", function()
-	if FruitState.Active then return end -- fruit on the ground has priority
+	if FruitState.Active then return end
 	if not IsAlive(LP.Character) then return end
 
 	local info = GetQuestInfo()
 	if not info or not info.Mob then return end
 
 	if IsQuestOn() then
-		-- already has a quest: farm
 		local mob = FindEnemy({ info.Mob })
 		if mob then
 			EngageEnemy(mob, "AutoFarmLevel")
@@ -515,7 +522,6 @@ CreateLoop("AutoFarmLevel", function()
 			task.wait(1)
 		end
 	else
-		-- no quest: go to NPC and take it
 		if info.CFrame and GetDistance(info.CFrame) > 5 then
 			TweenTo(info.CFrame)
 		else
@@ -548,8 +554,8 @@ tgNearest:OnChanged(function()
 end)
 
 CreateLoop("AutoFarmNearest", function()
-	if FruitState.Active then return end -- fruit on the ground has priority
-	if Options.AutoFarmLevel.Value then return end -- priority to level
+	if FruitState.Active then return end
+	if Options.AutoFarmLevel.Value then return end
 	local root = GetRoot()
 	if not root or not IsAlive(LP.Character) then return end
 
@@ -588,8 +594,8 @@ tgChest:OnChanged(function()
 end)
 
 CreateLoop("AutoFarmChest", function()
-	if FruitState.Active then return end -- fruit on the ground has priority
-	if Options.AutoFarmLevel.Value or Options.AutoFarmNearest.Value then return end -- level and nearest have priority
+	if FruitState.Active then return end
+	if Options.AutoFarmLevel.Value or Options.AutoFarmNearest.Value then return end
 	local root = GetRoot()
 	if not root or not IsAlive(LP.Character) then return end
 
@@ -610,14 +616,13 @@ CreateLoop("AutoFarmChest", function()
 end, 0.1)
 
 ----------------------------------------------------------------
--- Auto Collect Fruit (ported from Speed Hub)
+-- Fruits (collect + store)
 ----------------------------------------------------------------
 Tabs.Main:AddParagraph({
 	Title = "Fruits",
-	Content = "Collects fruits on the ground and stores them in the inventory. When a fruit is on the ground, other farms pause.",
+	Content = "Collects fruits on the ground and stores them. When a fruit is on the ground, other farms pause.",
 })
 
--- Finds the Handle of the nearest fruit on the ground
 local function FindGroundFruit()
 	local root = GetRoot()
 	if not root then return nil end
@@ -668,10 +673,6 @@ CreateLoop("AutoCollectFruit", function()
 	end
 end, 0.1)
 
-----------------------------------------------------------------
--- Auto Store Fruit (ported from Speed Hub)
-----------------------------------------------------------------
--- Returns (full name, normalized key, tool instance) of the current fruit
 local function GetCurrentFruit()
 	local function normalize(name)
 		local parts = name:split(":")
@@ -713,6 +714,106 @@ CreateLoop("AutoStoreFruit", function()
 end, 0.5)
 
 ----------------------------------------------------------------
+-- TAB MISSIONS
+----------------------------------------------------------------
+Tabs.Missions:AddParagraph({
+	Title = "Auto Elite Boss",
+	Content = "Farms the elite bosses (Diablo, Deandre, Urban) and picks up the Elite Hunter quest when needed.",
+})
+
+local tgElite = Tabs.Missions:AddToggle("AutoEliteBoss", {
+	Title = "Auto Elite Boss",
+	Description = "Farms elite bosses automatically",
+	Default = false,
+})
+tgElite:OnChanged(function()
+	if not tgElite.Value then StopTween() end
+end)
+
+CreateLoop("AutoEliteBoss", function()
+	if not IsAlive(LP.Character) then return end
+
+	local bosses = { "Diablo", "Deandre", "Urban" }
+	local boss = FindEnemy(bosses)
+
+	if boss and IsQuestOn() then
+		EngageEnemy(boss, "AutoEliteBoss")
+	else
+		-- If we already own the chalice we can teleport straight into the elite area
+		if HasTool("God's Chalice") then
+			FireRemote("requestEntrance", Vector3.new(-12471.17, 374.94025, -7551.6777))
+			return
+		end
+		-- Otherwise take the Elite Hunter quest
+		if not IsQuestOn() then
+			FireRemote("EliteHunter")
+		end
+	end
+end, 0.5)
+
+Tabs.Missions:AddParagraph({
+	Title = "Auto Yama",
+	Content = "Farms elite bosses until Elite Hunter progress reaches 30, then fetches Yama at the Waterfall.",
+})
+
+local function FindYamaKatana()
+	local map = workspace:FindFirstChild("Map")
+	if not map then return nil end
+	local waterfall = map:FindFirstChild("Waterfall")
+	if not waterfall then return nil end
+	return waterfall:FindFirstChild("SealedKatana")
+end
+
+local tgYama = Tabs.Missions:AddToggle("AutoYama", {
+	Title = "Auto Yama",
+	Description = "Fetches Yama once Elite Hunter progress is 30",
+	Default = false,
+})
+tgYama:OnChanged(function()
+	if not tgYama.Value then StopTween() end
+end)
+
+CreateLoop("AutoYama", function()
+	if not IsAlive(LP.Character) then return end
+
+	-- Already have Yama? Nothing to do
+	if HasTool("Yama") then return end
+
+	local progress = tonumber(FireRemote("EliteHunter", "Progress")) or 0
+
+	if progress >= 30 then
+		-- Go to the sealed katana and pick Yama up
+		local katana = FindYamaKatana()
+		if katana and katana:FindFirstChild("Handle") then
+			local handle = katana.Handle
+			if GetDistance(handle.CFrame) > 8 then
+				TweenTo(handle.CFrame)
+			else
+				local cd = handle:FindFirstChild("ClickDetecter") or handle:FindFirstChild("ClickDetector")
+				if cd then
+					fireclickdetector(cd)
+				end
+			end
+		end
+		return
+	end
+
+	-- Below 30: let Auto Elite Boss handle the farming when it's also on
+	if Options.AutoEliteBoss and Options.AutoEliteBoss.Value then return end
+
+	local bosses = { "Diablo", "Deandre", "Urban" }
+	local boss = FindEnemy(bosses)
+
+	if boss and IsQuestOn() then
+		EngageEnemy(boss, "AutoYama")
+	else
+		if not IsQuestOn() then
+			FireRemote("EliteHunter")
+		end
+	end
+end, 0.5)
+
+----------------------------------------------------------------
 -- TAB CONFIG
 ----------------------------------------------------------------
 Tabs.Config:AddParagraph({ Title = "Combat", Content = "Fast Attack and Bring Mob" })
@@ -731,7 +832,7 @@ Tabs.Config:AddToggle("BringMob", {
 
 Tabs.Config:AddDropdown("BringRadius", {
 	Title = "Bring Mob radius",
-	Values = { "100", "200", "300", "400", "500" },
+	Values = { "100", "150", "200", "250", "300" },
 	Multi = false,
 	Default = "300",
 })
@@ -754,9 +855,9 @@ Tabs.Config:AddDropdown("FarmDistance", {
 
 Tabs.Config:AddSlider("TweenSpeed", {
 	Title = "Tween Speed",
-	Default = 300,
+	Default = 210,
 	Min = 100,
-	Max = 500,
+	Max = 210,
 	Rounding = 0,
 })
 

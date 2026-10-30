@@ -1,7 +1,7 @@
 --[[
     W-AZURE V3  |  by jane doe sigma
     UI: Fluent
-    Tabs: Main (Auto Farm Level + Auto Farm Baús) / Config (Bring Mob + Fast Attack + ajustes)
+    Tabs: Main (Auto Farm Level + Auto Farm Chests + Auto Collect Fruit + Auto Store Fruit) / Config (Bring Mob + Fast Attack + settings)
 ]]
 
 repeat task.wait() until game:IsLoaded()
@@ -29,7 +29,7 @@ local Tabs = {
 local Options = Fluent.Options
 
 ----------------------------------------------------------------
--- Serviços / referências
+-- Services / references
 ----------------------------------------------------------------
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
@@ -50,8 +50,11 @@ local HitKey = tostring(LP.UserId):sub(2, 4) .. "078da"
 
 local Unloaded = false
 
+-- When there is a fruit on the ground and Auto Collect Fruit is on, the other farms pause
+local FruitState = { Active = false }
+
 ----------------------------------------------------------------
--- Utilidades
+-- Utilities
 ----------------------------------------------------------------
 local function GetRoot()
 	local char = LP.Character
@@ -94,7 +97,7 @@ local function EquipWeapon()
 	if not (backpack and char) then return end
 	local hum = char:FindFirstChildOfClass("Humanoid")
 	if not hum then return end
-	-- já equipado?
+	-- already equipped?
 	local held = char:FindFirstChildOfClass("Tool")
 	local wanted = Options.WeaponType and Options.WeaponType.Value or "Melee"
 	if held and held.ToolTip == wanted then return end
@@ -122,7 +125,7 @@ local function TweenTo(cf)
 	local speed = tonumber(Options.TweenSpeed and Options.TweenSpeed.Value) or 300
 	if speed <= 0 then speed = 300 end
 
-	-- teletransporte de mundo/ilha quando o destino está muito longe (requestEntrance)
+	-- world/island teleport when target is very far (requestEntrance)
 	local dist = (root.Position - cf.Position).Magnitude
 	if dist < 5 then StopTween() return end
 
@@ -143,12 +146,13 @@ local function TweenTo(cf)
 end
 
 ----------------------------------------------------------------
--- Noclip enquanto algum farm estiver ativo
+-- Noclip while any farm is active
 ----------------------------------------------------------------
 local function AnyFarmActive()
 	return (Options.AutoFarmLevel and Options.AutoFarmLevel.Value)
 		or (Options.AutoFarmNearest and Options.AutoFarmNearest.Value)
 		or (Options.AutoFarmChest and Options.AutoFarmChest.Value)
+		or (Options.AutoCollectFruit and Options.AutoCollectFruit.Value)
 end
 
 RunService.Stepped:Connect(function()
@@ -163,7 +167,7 @@ RunService.Stepped:Connect(function()
 end)
 
 ----------------------------------------------------------------
--- FindEnemy (nome limpo, mais próximo)
+-- FindEnemy (clean name, nearest)
 ----------------------------------------------------------------
 local NameCache = {}
 
@@ -193,14 +197,14 @@ local function FindEnemy(names)
 end
 
 ----------------------------------------------------------------
--- Sistema de missão (GetQuestInfo + isQuestOn + spawns)
+-- Quest system (GetQuestInfo + IsQuestOn + spawns)
 ----------------------------------------------------------------
 local function IsQuestOn()
 	local gui = LP.PlayerGui:FindFirstChild("TrackedQuestFrame")
 	return gui and gui.Frame.Visible or false
 end
 
--- retorna { Num, CFrame, Task, Quest, Level, Mob }
+-- returns { Num, CFrame, Task, Quest, Level, Mob }
 local function GetQuestInfo()
 	local level = LP.Data.Level.Value
 	local team = tostring(LP.Team)
@@ -230,7 +234,7 @@ local function GetQuestInfo()
 		return pack()
 	end
 
-	-- descobre a NPC/faixa de level correta
+	-- find the correct NPC/level range
 	reqLevel = 0
 	for npc, data in pairs(require(RS.GuideModule).Data.NPCList) do
 		local levels = data.Levels
@@ -244,7 +248,7 @@ local function GetQuestInfo()
 		end
 	end
 
-	-- entradas entre mundos/ilhas (First Sea)
+	-- cross-world/island entrances (First Sea)
 	if root and cf then
 		local mag = (cf.Position - root.Position).Magnitude
 		if level >= 375 and level <= 449 and mag > 3000 then
@@ -256,7 +260,7 @@ local function GetQuestInfo()
 		end
 	end
 
-	-- nome da quest e do mob via módulo Quests
+	-- quest & mob name via Quests module
 	local Quests = require(RS.Quests)
 	for qName, quest in pairs(Quests) do
 		if qName ~= "CitizenQuest" then
@@ -273,7 +277,7 @@ local function GetQuestInfo()
 		end
 	end
 
-	-- correções especiais
+	-- special corrections
 	if questName == "ImpelQuest" then
 		questName, num = "PrisonerQuest", 2
 		taskKey, mobName = "Dangerous Prisoner", "Dangerous Prisoner"
@@ -292,7 +296,7 @@ local function GetQuestInfo()
 	return pack()
 end
 
--- vai até os pontos de spawn do mob quando ele ainda não spawnou
+-- walk to mob spawn points when the mob has not spawned yet
 local SpawnIndex = 1
 local function GoToSpawn(mobName)
 	local folder = RS:FindFirstChild("FortBuilderReplicatedSpawnPositionsFolder")
@@ -445,7 +449,7 @@ task.spawn(function()
 end)
 
 ----------------------------------------------------------------
--- Engage (atacar o mob posicionando acima dele)
+-- Engage (attack mob by positioning above it)
 ----------------------------------------------------------------
 local function EngageEnemy(mob, flagName)
 	local hrp = mob and mob:FindFirstChild("HumanoidRootPart")
@@ -463,7 +467,7 @@ local function EngageEnemy(mob, flagName)
 end
 
 ----------------------------------------------------------------
--- Loop genérico
+-- Generic loop
 ----------------------------------------------------------------
 local function CreateLoop(flagName, fn, delay)
 	task.spawn(function()
@@ -482,7 +486,7 @@ end
 ----------------------------------------------------------------
 Tabs.Main:AddParagraph({
 	Title = "Auto Farm Level",
-	Content = "Pega a missão automaticamente, vai até o NPC e farma os mobs da quest.",
+	Content = "Automatically takes the quest, goes to the NPC, and farms the quest mobs.",
 })
 
 local tgLevel = Tabs.Main:AddToggle("AutoFarmLevel", {
@@ -495,13 +499,14 @@ tgLevel:OnChanged(function()
 end)
 
 CreateLoop("AutoFarmLevel", function()
+	if FruitState.Active then return end -- fruit on the ground has priority
 	if not IsAlive(LP.Character) then return end
 
 	local info = GetQuestInfo()
 	if not info or not info.Mob then return end
 
 	if IsQuestOn() then
-		-- já com missão: farmar
+		-- already has a quest: farm
 		local mob = FindEnemy({ info.Mob })
 		if mob then
 			EngageEnemy(mob, "AutoFarmLevel")
@@ -510,7 +515,7 @@ CreateLoop("AutoFarmLevel", function()
 			task.wait(1)
 		end
 	else
-		-- sem missão: ir até o NPC e pegar
+		-- no quest: go to NPC and take it
 		if info.CFrame and GetDistance(info.CFrame) > 5 then
 			TweenTo(info.CFrame)
 		else
@@ -523,11 +528,11 @@ end)
 
 Tabs.Main:AddParagraph({
 	Title = "Farm Nearest",
-	Content = "Farma o inimigo vivo mais próximo, sem usar missão. O Auto Farm Level tem prioridade.",
+	Content = "Farms the nearest living enemy without a quest. Auto Farm Level has priority.",
 })
 
 Tabs.Main:AddDropdown("NearestRange", {
-	Title = "Alcance de busca",
+	Title = "Search range",
 	Values = { "1000", "2000", "3000", "Infinite" },
 	Multi = false,
 	Default = "Infinite",
@@ -535,7 +540,7 @@ Tabs.Main:AddDropdown("NearestRange", {
 
 local tgNearest = Tabs.Main:AddToggle("AutoFarmNearest", {
 	Title = "Auto Farm Nearest",
-	Description = "Farma o mob mais próximo",
+	Description = "Farms the nearest mob",
 	Default = false,
 })
 tgNearest:OnChanged(function()
@@ -543,7 +548,8 @@ tgNearest:OnChanged(function()
 end)
 
 CreateLoop("AutoFarmNearest", function()
-	if Options.AutoFarmLevel.Value then return end -- prioridade pro level
+	if FruitState.Active then return end -- fruit on the ground has priority
+	if Options.AutoFarmLevel.Value then return end -- priority to level
 	local root = GetRoot()
 	if not root or not IsAlive(LP.Character) then return end
 
@@ -568,13 +574,13 @@ CreateLoop("AutoFarmNearest", function()
 end)
 
 Tabs.Main:AddParagraph({
-	Title = "Baús",
-	Content = "Coleta o baú mais próximo. O Auto Farm Level tem prioridade quando os dois estão ligados.",
+	Title = "Chests",
+	Content = "Collects the nearest chest. Auto Farm Level has priority when both are on.",
 })
 
 local tgChest = Tabs.Main:AddToggle("AutoFarmChest", {
-	Title = "Auto Farm Baús",
-	Description = "Coleta baús automaticamente",
+	Title = "Auto Farm Chests",
+	Description = "Collects chests automatically",
 	Default = false,
 })
 tgChest:OnChanged(function()
@@ -582,7 +588,8 @@ tgChest:OnChanged(function()
 end)
 
 CreateLoop("AutoFarmChest", function()
-	if Options.AutoFarmLevel.Value or Options.AutoFarmNearest.Value then return end -- level e nearest têm prioridade
+	if FruitState.Active then return end -- fruit on the ground has priority
+	if Options.AutoFarmLevel.Value or Options.AutoFarmNearest.Value then return end -- level and nearest have priority
 	local root = GetRoot()
 	if not root or not IsAlive(LP.Character) then return end
 
@@ -603,47 +610,150 @@ CreateLoop("AutoFarmChest", function()
 end, 0.1)
 
 ----------------------------------------------------------------
+-- Auto Collect Fruit (ported from Speed Hub)
+----------------------------------------------------------------
+Tabs.Main:AddParagraph({
+	Title = "Fruits",
+	Content = "Collects fruits on the ground and stores them in the inventory. When a fruit is on the ground, other farms pause.",
+})
+
+-- Finds the Handle of the nearest fruit on the ground
+local function FindGroundFruit()
+	local root = GetRoot()
+	if not root then return nil end
+	local bestDist = math.huge
+	local bestHandle = nil
+	for _, child in ipairs(workspace:GetChildren()) do
+		local handle = child:FindFirstChild("Handle")
+		if handle and child:IsA("Tool") then
+			local d = (root.Position - handle.Position).Magnitude
+			if d < bestDist then
+				bestDist = d
+				bestHandle = handle
+			end
+		elseif handle and child.Name:find("Fruit") then
+			local d = (root.Position - handle.Position).Magnitude
+			if d < bestDist then
+				bestDist = d
+				bestHandle = handle
+			end
+		end
+	end
+	return bestHandle
+end
+
+local tgCollectFruit = Tabs.Main:AddToggle("AutoCollectFruit", {
+	Title = "Auto Collect Fruit",
+	Description = "Collects fruits on the ground automatically",
+	Default = false,
+})
+tgCollectFruit:OnChanged(function()
+	if not tgCollectFruit.Value then
+		FruitState.Active = false
+		StopTween()
+	end
+end)
+
+CreateLoop("AutoCollectFruit", function()
+	if not IsAlive(LP.Character) then
+		FruitState.Active = false
+		return
+	end
+	local handle = FindGroundFruit()
+	if handle then
+		FruitState.Active = true
+		TweenTo(handle.CFrame)
+	else
+		FruitState.Active = false
+	end
+end, 0.1)
+
+----------------------------------------------------------------
+-- Auto Store Fruit (ported from Speed Hub)
+----------------------------------------------------------------
+-- Returns (full name, normalized key, tool instance) of the current fruit
+local function GetCurrentFruit()
+	local function normalize(name)
+		local parts = name:split(":")
+		return (parts[1] .. "-" .. parts[1] .. (parts[2] and ":" .. parts[2] or "")):gsub(" Fruit", "")
+	end
+
+	local char = LP.Character
+	if char then
+		for _, item in ipairs(char:GetChildren()) do
+			if item.Name:find("Fruit") then
+				return item.Name, normalize(item.Name), item
+			end
+		end
+	end
+
+	local backpack = LP.Backpack
+	if backpack then
+		for _, item in ipairs(backpack:GetChildren()) do
+			if item.Name:find("Fruit") then
+				return item.Name, normalize(item.Name), item
+			end
+		end
+	end
+
+	return nil, nil, nil
+end
+
+Tabs.Main:AddToggle("AutoStoreFruit", {
+	Title = "Auto Store Fruit",
+	Description = "Stores fruits in the inventory automatically",
+	Default = false,
+})
+
+CreateLoop("AutoStoreFruit", function()
+	local _, fruitKey, tool = GetCurrentFruit()
+	if fruitKey and tool then
+		FireRemote("StoreFruit", fruitKey, tool)
+	end
+end, 0.5)
+
+----------------------------------------------------------------
 -- TAB CONFIG
 ----------------------------------------------------------------
-Tabs.Config:AddParagraph({ Title = "Combate", Content = "Fast Attack e Bring Mob" })
+Tabs.Config:AddParagraph({ Title = "Combat", Content = "Fast Attack and Bring Mob" })
 
 Tabs.Config:AddToggle("FastAttack", {
 	Title = "Fast Attack",
-	Description = "Ataque mais rápido",
+	Description = "Faster attack speed",
 	Default = true,
 })
 
 Tabs.Config:AddToggle("BringMob", {
 	Title = "Bring Mob",
-	Description = "Puxa os inimigos para perto",
+	Description = "Pulls enemies closer",
 	Default = true,
 })
 
 Tabs.Config:AddDropdown("BringRadius", {
-	Title = "Raio do Bring Mob",
+	Title = "Bring Mob radius",
 	Values = { "100", "200", "300", "400", "500" },
 	Multi = false,
 	Default = "300",
 })
 
-Tabs.Config:AddParagraph({ Title = "Farm", Content = "Arma e movimentação" })
+Tabs.Config:AddParagraph({ Title = "Farm", Content = "Weapon and movement" })
 
 Tabs.Config:AddDropdown("WeaponType", {
-	Title = "Arma",
+	Title = "Weapon",
 	Values = { "Melee", "Sword", "Blox Fruit", "Gun" },
 	Multi = false,
 	Default = "Melee",
 })
 
 Tabs.Config:AddDropdown("FarmDistance", {
-	Title = "Distância do inimigo",
+	Title = "Distance from enemy",
 	Values = { "10", "20", "30", "40", "50", "60" },
 	Multi = false,
 	Default = "20",
 })
 
 Tabs.Config:AddSlider("TweenSpeed", {
-	Title = "Velocidade do Tween",
+	Title = "Tween Speed",
 	Default = 300,
 	Min = 100,
 	Max = 500,
@@ -657,6 +767,6 @@ Window:SelectTab(1)
 
 Fluent:Notify({
 	Title = "W-AZURE V3",
-	Content = "Carregado com sucesso! by jane doe sigma",
+	Content = "Loaded successfully! by jane doe sigma",
 	Duration = 5,
 })

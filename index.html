@@ -1,957 +1,241 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Key System</title>
+<title>W-Azure v3 | Key</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+  }
 
   body {
-    background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 50%, #0d0d0d 100%);
     min-height: 100vh;
+    background: #0a0a0a;
+    background-image:
+      radial-gradient(circle at 20% 10%, #1a1a1a 0%, transparent 45%),
+      radial-gradient(circle at 80% 90%, #161616 0%, transparent 45%);
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    color: #e0e0e0;
-    padding: 20px;
+    padding: 24px;
+    color: #e6e6e6;
   }
 
   .container {
-    background: linear-gradient(145deg, #2a2a2a, #181818);
-    border: 1px solid #444;
-    border-radius: 16px;
-    padding: 40px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.05);
-    max-width: 480px;
     width: 100%;
+    max-width: 640px;
+    background: #121212;
+    border: 1px solid #2a2a2a;
+    border-radius: 14px;
+    padding: 34px 30px 30px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.75);
+  }
+
+  .logo {
     text-align: center;
-  }
-
-  h1 {
-    font-size: 1.7rem;
-    margin-bottom: 30px;
-    color: #fff;
-    letter-spacing: 2px;
-    text-shadow: 0 2px 12px rgba(255,255,255,0.08);
-    font-weight: 600;
-  }
-
-  .btn {
-    background: linear-gradient(145deg, #3a3a3a, #222);
-    color: #fff;
-    border: 1px solid #555;
-    border-radius: 12px;
-    padding: 14px 28px;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    width: 100%;
-    letter-spacing: 1px;
-  }
-
-  .btn:hover {
-    background: linear-gradient(145deg, #4a4a4a, #2a2a2a);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 22px rgba(0,0,0,0.6);
-    border-color: #777;
-  }
-
-  .btn:active { transform: translateY(0) scale(0.98); }
-
-  #captchaSection, #providerSection, #waitSection, #googleSection, #keySection {
-    display: none;
-    margin-top: 25px;
-  }
-
-  .active { display: block !important; animation: fadeIn 0.5s ease; }
-
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(12px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  .captcha-wrap { display: flex; flex-direction: column; align-items: center; }
-
-  .fake-captcha {
-    background: #1f1f1f;
-    border: 1px solid #3a3a3a;
-    border-radius: 8px;
-    padding: 14px 16px;
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    cursor: pointer;
-    user-select: none;
-    width: 300px;
-    height: 68px;
-    transition: border-color 0.2s ease, background 0.2s ease;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-  }
-
-  .fake-captcha:hover { border-color: #777; background: #242424; }
-  .fake-captcha.verified { cursor: default; border-color: #22c55e; background: #1a1a1a; }
-
-  .fc-checkbox {
-    width: 26px; height: 26px;
-    border: 2px solid #888; border-radius: 4px;
-    display: flex; align-items: center; justify-content: center;
-    background: transparent; position: relative;
-    transition: border-color 0.2s ease; flex-shrink: 0;
-  }
-
-  .fake-captcha:hover .fc-checkbox { border-color: #ccc; }
-  .fake-captcha.verifying .fc-checkbox { border-color: #f0b429; }
-  .fake-captcha.verified .fc-checkbox { border-color: #22c55e; background: rgba(34,197,94,0.08); }
-
-  .fc-checkbox svg { width: 18px; height: 18px; position: absolute; }
-  #fcSpinner, #fcCheck { display: none; }
-  .fake-captcha.verifying #fcSpinner { display: block; }
-  .fake-captcha.verified #fcCheck { display: block; }
-
-  .fc-label { color: #e5e5e5; font-size: 0.85rem; font-weight: 400; }
-  .fake-captcha.verified .fc-label { color: #22c55e; }
-
-  .providers { display: flex; flex-direction: column; gap: 16px; }
-
-  .provider-btn {
-    background: linear-gradient(145deg, #333, #1c1c1c);
-    border: 1px solid #555;
-    border-radius: 12px;
-    padding: 16px 20px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 14px;
-    transition: all 0.2s ease;
-    user-select: none;
-    min-height: 80px;
-  }
-
-  .provider-btn:hover {
-    background: linear-gradient(145deg, #454545, #252525);
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(0,0,0,0.7);
-    border-color: #777;
-  }
-
-  .provider-btn:active { transform: scale(0.97); }
-
-  .lootlabs-btn img {
-    width: auto; height: 30px;
-    object-fit: contain; mix-blend-mode: screen;
-  }
-
-  .lootlabs-btn span {
-    font-size: 1.3rem; font-weight: 700; color: #fff; letter-spacing: 0.5px;
-  }
-
-  .wait-box {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 18px;
-    padding: 20px 0;
-  }
-
-  .wait-spinner {
-    width: 46px; height: 46px;
-    border: 3px solid #3a3a3a;
-    border-top: 3px solid #f0b429;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-  }
-
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  .wait-text {
-    color: #b0b0b0;
-    font-size: 0.95rem;
-    line-height: 1.6;
-  }
-
-  .wait-text strong { color: #f0b429; }
-
-  .google-box {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 18px;
-  }
-
-  .google-info {
-    color: #b0b0b0;
-    font-size: 0.9rem;
-    line-height: 1.6;
-    text-align: center;
-  }
-
-  .google-info strong { color: #fff; }
-
-  .google-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    background: #ffffff;
-    color: #3c4043;
-    border: 1px solid #dadce0;
-    border-radius: 8px;
-    padding: 12px 24px;
-    font-size: 0.95rem;
-    font-weight: 500;
-    font-family: 'Roboto', Arial, sans-serif;
-    cursor: pointer;
-    width: 100%;
-    max-width: 280px;
-    transition: all 0.2s ease;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-  }
-
-  .google-btn:hover {
-    background: #f8f9fa;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-    transform: translateY(-1px);
-  }
-
-  .google-btn:active { transform: translateY(0); }
-  .google-btn svg { width: 22px; height: 22px; }
-
-  .google-btn.verified {
-    background: #1a1a1a;
-    color: #22c55e;
-    border-color: #22c55e;
-    cursor: default;
-    pointer-events: none;
-  }
-
-  .account-info {
-    display: none;
-    align-items: center;
-    gap: 10px;
-    background: #1a1a1a;
-    border: 1px solid #333;
-    border-radius: 8px;
-    padding: 10px 16px;
-    font-size: 0.85rem;
-    color: #ddd;
-    max-width: 300px;
-  }
-
-  .account-info.show { display: flex; animation: fadeIn 0.4s ease; }
-
-  .account-avatar {
-    width: 32px; height: 32px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #4D6BFE, #22c55e);
-    display: flex; align-items: center; justify-content: center;
-    color: #fff; font-weight: 700; font-size: 0.9rem;
-    flex-shrink: 0;
-  }
-
-  .account-email {
-    font-size: 0.8rem;
-    color: #999;
-    word-break: break-all;
-  }
-
-  .key-box {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 18px;
-  }
-
-  .key-btn {
-    background: linear-gradient(145deg, #22c55e, #16a34a);
-    color: #fff;
-    border: 1px solid #22c55e;
-    border-radius: 12px;
-    padding: 16px 32px;
-    font-size: 1.1rem;
+    font-size: 26px;
+    letter-spacing: 6px;
     font-weight: 700;
-    cursor: pointer;
-    width: 100%;
-    letter-spacing: 1.5px;
-    transition: all 0.2s ease;
-    box-shadow: 0 4px 20px rgba(34,197,94,0.3);
+    color: #f2f2f2;
   }
 
-  .key-btn:hover {
-    background: linear-gradient(145deg, #2ddc6a, #22c55e);
-    transform: translateY(-2px);
-    box-shadow: 0 8px 30px rgba(34,197,94,0.5);
+  .logo span {
+    color: #8a8a8a;
   }
 
-  .key-btn:active { transform: scale(0.98); }
+  .sub {
+    text-align: center;
+    font-size: 12px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #6e6e6e;
+    margin-top: 8px;
+    margin-bottom: 26px;
+  }
 
-  .key-result {
-    display: none;
-    background: #0d0d0d;
-    border: 1px solid #22c55e;
+  .keybox {
+    background: #1b1b1b;
+    border: 1px solid #5a5a5a;
     border-radius: 10px;
-    padding: 16px;
-    width: 100%;
-    font-family: 'Courier New', monospace;
-    font-size: 1rem;
-    color: #22c55e;
-    letter-spacing: 2px;
-    word-break: break-all;
+    padding: 20px 16px;
     text-align: center;
-  }
-
-  .key-result.show { display: block; animation: fadeIn 0.4s ease; }
-
-  .debug {
-    display: none;
-    margin-top: 20px;
-    background: #0d0d0d;
-    border: 1px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    font-family: 'Courier New', monospace;
-    font-size: 0.7rem;
-    color: #666;
-    text-align: left;
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 16px;
+    letter-spacing: 1.5px;
+    color: #f5f5f5;
     word-break: break-all;
-  }
-
-  .debug.show { display: block; }
-
-  footer {
-    margin-top: 45px;
-    text-align: center;
-    color: #888;
-    font-size: 0.88rem;
-    letter-spacing: 0.5px;
-  }
-
-  /* === GOOGLE MODAL === */
-  .gmodal-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.6);
-    backdrop-filter: blur(4px);
+    min-height: 62px;
+    display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 9999;
-    padding: 20px;
+    box-shadow: inset 0 0 22px rgba(255, 255, 255, 0.04);
   }
 
-  .gmodal-overlay.show { display: flex; }
-
-  .gmodal {
-    background: #fff;
-    color: #202124;
-    border-radius: 12px;
-    width: 100%;
-    max-width: 400px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-    overflow: hidden;
-    animation: gmodalIn 0.25s ease;
-    font-family: 'Roboto', Arial, sans-serif;
-  }
-
-  @keyframes gmodalIn {
-    from { opacity: 0; transform: scale(0.94); }
-    to { opacity: 1; transform: scale(1); }
-  }
-
-  .gmodal-header {
+  .actions {
     display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 18px 24px;
-    border-bottom: 1px solid #e8eaed;
-    font-size: 0.95rem;
-    color: #5f6368;
-    font-weight: 500;
+    gap: 12px;
+    margin-top: 18px;
+    flex-wrap: wrap;
   }
 
-  .gmodal-body {
-    padding: 24px;
-  }
-
-  .gmodal-body h2 {
-    font-size: 1.4rem;
-    font-weight: 400;
-    color: #202124;
-    margin-bottom: 6px;
-  }
-
-  .gmodal-body p {
-    font-size: 0.9rem;
-    color: #5f6368;
-    margin-bottom: 22px;
-  }
-
-  .gmodal-body p strong { color: #202124; font-weight: 500; }
-
-  .gmodal-input {
-    width: 100%;
-    padding: 14px 16px;
-    font-size: 1rem;
-    border: 1px solid #dadce0;
-    border-radius: 6px;
-    outline: none;
-    color: #202124;
-    background: #fff;
-    font-family: 'Roboto', Arial, sans-serif;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
-  }
-
-  .gmodal-input:focus {
-    border-color: #1a73e8;
-    box-shadow: 0 0 0 2px rgba(26,115,232,0.15);
-  }
-
-  .gmodal-input.error { border-color: #d93025; }
-
-  .gmodal-error {
-    display: none;
-    color: #d93025;
-    font-size: 0.8rem;
-    margin-top: 6px;
-  }
-
-  .gmodal-error.show { display: block; }
-
-  .gmodal-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-top: 28px;
-  }
-
-  .gmodal-btn-primary,
-  .gmodal-btn-secondary {
-    padding: 10px 24px;
-    border-radius: 6px;
-    border: none;
-    font-size: 0.9rem;
-    font-weight: 500;
+  button {
+    flex: 1;
+    min-width: 150px;
+    padding: 14px 18px;
+    border-radius: 9px;
+    border: 1px solid #3a3a3a;
+    background: #1f1f1f;
+    color: #e2e2e2;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
     cursor: pointer;
-    font-family: 'Roboto', Arial, sans-serif;
-    transition: background 0.15s ease;
+    transition: background 0.2s, border-color 0.2s, transform 0.1s, color 0.2s;
   }
 
-  .gmodal-btn-primary {
-    background: #1a73e8;
-    color: #fff;
+  button:hover:not(:disabled) {
+    background: #2b2b2b;
+    border-color: #5c5c5c;
   }
 
-  .gmodal-btn-primary:hover { background: #1765cc; }
-
-  .gmodal-btn-secondary {
-    background: transparent;
-    color: #1a73e8;
+  button:active:not(:disabled) {
+    transform: scale(0.98);
   }
 
-  .gmodal-btn-secondary:hover { background: rgba(26,115,232,0.08); }
+  button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  #copyBtn {
+    background: #e8e8e8;
+    color: #0a0a0a;
+    border-color: #e8e8e8;
+  }
+
+  #copyBtn:hover:not(:disabled) {
+    background: #ffffff;
+    border-color: #ffffff;
+  }
+
+  .divider {
+    height: 1px;
+    background: linear-gradient(to right, transparent, #2e2e2e, transparent);
+    margin: 28px 0 24px;
+  }
+
+  .notice {
+    background: #151515;
+    border: 1px solid #2b2b2b;
+    border-left: 3px solid #6e6e6e;
+    border-radius: 8px;
+    padding: 18px 20px;
+  }
+
+  .notice h2 {
+    font-size: 13px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #bdbdbd;
+    margin-bottom: 10px;
+    font-weight: 700;
+  }
+
+  .notice p {
+    font-size: 13.5px;
+    line-height: 1.65;
+    color: #8f8f8f;
+    margin-bottom: 10px;
+  }
+
+  .notice p:last-child {
+    margin-bottom: 0;
+  }
+
+  .notice p strong {
+    color: #d6d6d6;
+  }
+
+  .footer {
+    text-align: center;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: #4a4a4a;
+    margin-top: 22px;
+    text-transform: uppercase;
+  }
 </style>
 </head>
 <body>
 
-<div class="container">
-  <h1>KEY SYSTEM</h1>
+  <div class="container">
 
-  <button class="btn" id="selectBtn" onclick="showCaptcha()">Select Provider</button>
+    <div class="logo">W-AZURE <span>V3</span></div>
+    <div class="sub">Exclusive Key</div>
 
-  <div id="captchaSection">
-    <div class="captcha-wrap">
-      <div class="fake-captcha" id="fakeCaptcha" onclick="fakeVerify()">
-        <div class="fc-checkbox" id="fcCheckbox">
-          <svg id="fcSpinner" viewBox="0 0 50 50">
-            <circle cx="25" cy="25" r="20" fill="none" stroke="#f0b429" stroke-width="5"
-                    stroke-dasharray="90 150" stroke-linecap="round">
-              <animateTransform attributeName="transform" type="rotate"
-                                from="0 25 25" to="360 25 25" dur="0.9s" repeatCount="indefinite"/>
-            </circle>
-          </svg>
-          <svg id="fcCheck" viewBox="0 0 24 24">
-            <path d="M5 13l4 4L19 7" fill="none" stroke="#22c55e" stroke-width="3"
-                  stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </div>
-        <span class="fc-label" id="fcLabel">Verify you are human</span>
-      </div>
+    <div class="keybox" id="keyBox">W-AZURE-V3-PS8W2-HXLCZ-S7SNB-H29DY</div>
+
+    <div class="actions">
+      <button id="copyBtn">Copiar Key</button>
     </div>
-  </div>
 
-  <div id="providerSection">
-    <div class="providers">
-      <div class="provider-btn lootlabs-btn" onclick="goLootlabs()">
-        <img src="https://github.com/user-attachments/assets/ac69add3-349f-4454-905e-2e9b29e7b1a0" alt="Loot Labs">
-        <span>Loot Labs</span>
-      </div>
-    </div>
-  </div>
+    <div class="divider"></div>
 
-  <div id="waitSection">
-    <div class="wait-box">
-      <div class="wait-spinner"></div>
-      <p class="wait-text">
-        Waiting for you to complete the task...<br>
-        <strong>Return to this page</strong> after finishing.
-      </p>
-    </div>
-  </div>
+    <div class="notice">
+      <h2>Important Notice</h2>
 
-  <div id="googleSection">
-    <div class="google-box">
-      <p class="google-info">
-        To continue, verify your <strong>Google account</strong>.<br>
-        Only accounts with a valid email are accepted.
+      <p>
+        This key is <strong>exclusive to W-Azure v3</strong> and is required to
+        <strong>enable bypass functionality</strong> for the script.
       </p>
 
-      <button class="google-btn" id="googleBtn" onclick="googleSignIn()">
-        <svg viewBox="0 0 48 48">
-          <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-          <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-          <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-          <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-        </svg>
-        <span id="googleBtnText">Sign in with Google</span>
-      </button>
-
-      <div class="account-info" id="accountInfo">
-        <div class="account-avatar" id="accountAvatar">U</div>
-        <div>
-          <div id="accountName" style="font-weight:600;color:#fff;">User</div>
-          <div class="account-email" id="accountEmail">user@gmail.com</div>
-        </div>
-      </div>
+      <p>
+        Sharing, leaking, or exposing this key in any public place is strictly forbidden.
+        <strong>YouTubers and content creators who reveal their key to the public</strong>
+        — in videos, live streams, video descriptions, comments, social media, forums, or any other public
+        platform — <strong>will be permanently banned from the W-Azure v3 script</strong>. Their access will be
+        revoked immediately and without prior warning. Keep your key private at all times.
+      </p>
     </div>
+
+    <div class="footer">W-Azure v3 &copy; All rights reserved</div>
+
   </div>
-
-  <div id="keySection">
-    <div class="key-box">
-      <button class="key-btn" onclick="generateKey()">GENERATE KEY</button>
-      <div class="key-result" id="keyResult"></div>
-    </div>
-  </div>
-
-  <div class="debug" id="debugPanel"></div>
-</div>
-
-<!-- Google Sign-in Modal -->
-<div class="gmodal-overlay" id="gmodalOverlay">
-  <div class="gmodal">
-    <div class="gmodal-header">
-      <svg viewBox="0 0 48 48" width="26" height="26">
-        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-      </svg>
-      <span>Sign in with Google</span>
-    </div>
-    <div class="gmodal-body">
-      <h2>Choose an account</h2>
-      <p>to continue to <strong>Key System</strong></p>
-      <input type="email" id="googleEmailInput" class="gmodal-input" placeholder="Email or phone" autocomplete="email">
-      <div class="gmodal-error" id="gmodalError">Enter a valid email</div>
-      <div class="gmodal-actions">
-        <button class="gmodal-btn-secondary" onclick="closeGoogleModal()">Cancel</button>
-        <button class="gmodal-btn-primary" onclick="confirmGoogleEmail()">Next</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<footer>
-  <span>Powered by DeepSeek</span>
-</footer>
 
 <script>
-  // ==================== AUDIO ====================
-  let audioCtx = null;
-  function playClick() {
-    try {
-      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const ctx = audioCtx;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      const filter = ctx.createBiquadFilter();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(320, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(220, ctx.currentTime + 0.15);
-      filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(1200, ctx.currentTime);
-      filter.frequency.exponentialRampToValueAtTime(600, ctx.currentTime + 0.15);
-      filter.Q.value = 0.7;
-      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.012);
-      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.18);
-      osc.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
-      osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.2);
+  const keyBox  = document.getElementById('keyBox');
+  const copyBtn = document.getElementById('copyBtn');
 
-      const osc2 = ctx.createOscillator();
-      const gain2 = ctx.createGain();
-      osc2.type = 'sine';
-      osc2.frequency.setValueAtTime(880, ctx.currentTime);
-      osc2.frequency.exponentialRampToValueAtTime(660, ctx.currentTime + 0.1);
-      gain2.gain.setValueAtTime(0.0001, ctx.currentTime);
-      gain2.gain.exponentialRampToValueAtTime(0.025, ctx.currentTime + 0.008);
-      gain2.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.12);
-      osc2.connect(gain2); gain2.connect(ctx.destination);
-      osc2.start(ctx.currentTime); osc2.stop(ctx.currentTime + 0.15);
-    } catch (e) {}
-  }
-
-  // ==================== HELPERS ====================
-  function hideAll() {
-    ['selectBtn','captchaSection','providerSection','waitSection','googleSection','keySection']
-      .forEach(id => {
-        const el = document.getElementById(id);
-        if (id === 'selectBtn') el.style.display = 'none';
-        else el.classList.remove('active');
-      });
-  }
-
-  function show(id) {
-    document.getElementById(id).classList.add('active');
-  }
-
-  // ==================== DEBUG ====================
-  const debugLog = [];
-  function logDebug(msg) {
-    debugLog.push('[' + new Date().toLocaleTimeString() + '] ' + msg);
-    const panel = document.getElementById('debugPanel');
-    if (panel) {
-      panel.textContent = debugLog.join('\n');
-      panel.classList.add('show');
-    }
-    console.log('[KeySystem]', msg);
-  }
-
-  // ==================== COOKIES ====================
-  function setCookie(name, value, seconds) {
-    const expires = new Date(Date.now() + seconds * 1000).toUTCString();
-    document.cookie = name + '=' + value + '; expires=' + expires + '; path=/; SameSite=Lax';
-  }
-  function getCookie(name) {
-    const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
-    return match ? match[2] : null;
-  }
-  function deleteCookie(name) {
-    document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-  }
-
-  // ==================== DETECÇÃO DE RETORNO ====================
-  function detectReturn() {
-    logDebug('--- Iniciando detecção de retorno ---');
-    let detected = false;
-    let method = '';
-    let provider = '';
+  copyBtn.addEventListener('click', async function () {
+    const key = keyBox.textContent.trim();
+    if (!key) return;
 
     try {
-      const urlParams = new URLSearchParams(window.location.search);
-      const fromParam = urlParams.get('from') || urlParams.get('ref') || urlParams.get('provider');
-      if (fromParam) {
-        detected = true;
-        method = 'URL param: ' + fromParam;
-        provider = fromParam;
-      }
-      logDebug('M1 URL param: ' + (fromParam || 'nada'));
-    } catch(e) { logDebug('M1 erro: ' + e.message); }
-
-    if (!detected) {
-      try {
-        const hash = window.location.hash.replace('#', '');
-        if (hash) {
-          const hashParams = new URLSearchParams(hash);
-          const fromHash = hashParams.get('from') || hashParams.get('ref');
-          if (fromHash) {
-            detected = true;
-            method = 'Hash param: ' + fromHash;
-            provider = fromHash;
-          }
-        }
-        logDebug('M2 Hash: ' + (hash || 'vazio'));
-      } catch(e) { logDebug('M2 erro: ' + e.message); }
+      await navigator.clipboard.writeText(key);
+    } catch (err) {
+      const temp = document.createElement('textarea');
+      temp.value = key;
+      temp.style.position = 'fixed';
+      temp.style.opacity = '0';
+      document.body.appendChild(temp);
+      temp.select();
+      document.execCommand('copy');
+      document.body.removeChild(temp);
     }
 
-    if (!detected) {
-      const ref = document.referrer || '';
-      logDebug('M3 Referrer: ' + (ref || 'vazio'));
-      if (/linkvertise|link-to|direct-link|loot|lootlabs|kys\.linkvertise/i.test(ref)) {
-        detected = true;
-        method = 'Referrer: ' + ref.substring(0, 50);
-        provider = /linkvertise|direct-link|kys\./i.test(ref) ? 'linkvertise' : 'lootlabs';
-      }
-    }
+    const original = copyBtn.textContent;
+    copyBtn.textContent = 'Copiado!';
+    copyBtn.disabled = true;
 
-    if (!detected) {
-      try {
-        const lsFlag = localStorage.getItem('ks_waiting');
-        const lsProvider = localStorage.getItem('ks_provider');
-        const lsTs = parseInt(localStorage.getItem('ks_ts') || '0');
-        const elapsed = Date.now() - lsTs;
-        logDebug('M4 localStorage: flag=' + lsFlag + ' provider=' + lsProvider + ' elapsed=' + elapsed + 'ms');
-        if (lsFlag === 'true' && elapsed > 3000) {
-          detected = true;
-          method = 'localStorage (elapsed ' + Math.round(elapsed/1000) + 's)';
-          provider = lsProvider || 'unknown';
-        }
-      } catch(e) { logDebug('M4 erro: ' + e.message); }
-    }
-
-    if (!detected) {
-      try {
-        const cookieFlag = getCookie('ks_waiting');
-        const cookieProvider = getCookie('ks_provider');
-        const cookieTs = parseInt(getCookie('ks_ts') || '0');
-        const elapsed = Date.now() - cookieTs;
-        logDebug('M5 Cookie: flag=' + cookieFlag + ' provider=' + cookieProvider + ' elapsed=' + elapsed + 'ms');
-        if (cookieFlag === 'true' && elapsed > 3000) {
-          detected = true;
-          method = 'Cookie (elapsed ' + Math.round(elapsed/1000) + 's)';
-          provider = cookieProvider || 'unknown';
-        }
-      } catch(e) { logDebug('M5 erro: ' + e.message); }
-    }
-
-    if (!detected) {
-      try {
-        const ssFlag = sessionStorage.getItem('ks_waiting');
-        const ssProvider = sessionStorage.getItem('ks_provider');
-        const ssTs = parseInt(sessionStorage.getItem('ks_ts') || '0');
-        const elapsed = Date.now() - ssTs;
-        logDebug('M6 sessionStorage: flag=' + ssFlag + ' provider=' + ssProvider + ' elapsed=' + elapsed + 'ms');
-        if (ssFlag === 'true' && elapsed > 3000) {
-          detected = true;
-          method = 'sessionStorage (elapsed ' + Math.round(elapsed/1000) + 's)';
-          provider = ssProvider || 'unknown';
-        }
-      } catch(e) { logDebug('M6 erro: ' + e.message); }
-    }
-
-    if (!detected) {
-      try {
-        const navEntries = performance.getEntriesByType('navigation');
-        if (navEntries.length > 0) {
-          const nav = navEntries[0];
-          const navType = nav.type;
-          logDebug('M7 Navigation type: ' + navType);
-          const hasFlag = localStorage.getItem('ks_waiting') === 'true' ||
-                          getCookie('ks_waiting') === 'true' ||
-                          sessionStorage.getItem('ks_waiting') === 'true';
-          if (navType === 'back_forward' && hasFlag) {
-            detected = true;
-            method = 'Navigation back_forward';
-          }
-        }
-      } catch(e) { logDebug('M7 erro: ' + e.message); }
-    }
-
-    if (!detected) {
-      try {
-        const anyTs = parseInt(
-          localStorage.getItem('ks_ts') ||
-          getCookie('ks_ts') ||
-          sessionStorage.getItem('ks_ts') ||
-          '0'
-        );
-        if (anyTs > 0) {
-          const elapsed = Date.now() - anyTs;
-          logDebug('M8 Fallback: elapsed=' + elapsed + 'ms');
-          if (elapsed > 15000) {
-            detected = true;
-            method = 'Fallback timeout (' + Math.round(elapsed/1000) + 's)';
-          }
-        }
-      } catch(e) { logDebug('M8 erro: ' + e.message); }
-    }
-
-    if (detected) {
-      logDebug('✅ DETECTADO! Método: ' + method + ' | Provider: ' + provider);
-
-      try {
-        localStorage.removeItem('ks_waiting');
-        localStorage.removeItem('ks_provider');
-        localStorage.removeItem('ks_ts');
-      } catch(e) {}
-      try {
-        sessionStorage.removeItem('ks_waiting');
-        sessionStorage.removeItem('ks_provider');
-        sessionStorage.removeItem('ks_ts');
-      } catch(e) {}
-      try {
-        deleteCookie('ks_waiting');
-        deleteCookie('ks_provider');
-        deleteCookie('ks_ts');
-      } catch(e) {}
-      try {
-        if (window.location.search || window.location.hash) {
-          window.history.replaceState({}, document.title, window.location.pathname);
-        }
-      } catch(e) {}
-
-      setTimeout(() => {
-        hideAll();
-        show('googleSection');
-        logDebug('➡️ Mostrando tela do Google');
-      }, 400);
-
-      return true;
-    } else {
-      logDebug('❌ Nenhum método detectou retorno');
-      return false;
-    }
-  }
-
-  // ==================== FLOW ====================
-  function showCaptcha() {
-    playClick();
-    hideAll();
-    show('captchaSection');
-  }
-
-  function fakeVerify() {
-    const box = document.getElementById('fakeCaptcha');
-    if (box.classList.contains('verifying') || box.classList.contains('verified')) return;
-    playClick();
-    box.classList.add('verifying');
-    document.getElementById('fcLabel').textContent = 'Verifying...';
-    setTimeout(() => {
-      box.classList.remove('verifying');
-      box.classList.add('verified');
-      document.getElementById('fcLabel').textContent = 'Success!';
-      setTimeout(() => {
-        playClick();
-        hideAll();
-        show('providerSection');
-      }, 600);
-    }, 1200);
-  }
-
-  function saveWaitingState(provider) {
-    const ts = Date.now().toString();
-    try {
-      localStorage.setItem('ks_waiting', 'true');
-      localStorage.setItem('ks_provider', provider);
-      localStorage.setItem('ks_ts', ts);
-    } catch(e) {}
-    try {
-      sessionStorage.setItem('ks_waiting', 'true');
-      sessionStorage.setItem('ks_provider', provider);
-      sessionStorage.setItem('ks_ts', ts);
-    } catch(e) {}
-    try {
-      setCookie('ks_waiting', 'true', 3600);
-      setCookie('ks_provider', provider, 3600);
-      setCookie('ks_ts', ts, 3600);
-    } catch(e) {}
-    logDebug('💾 Estado salvo: provider=' + provider + ' ts=' + ts);
-  }
-
-  function goLootlabs() {
-    playClick();
-    saveWaitingState('lootlabs');
-    hideAll();
-    show('waitSection');
-    setTimeout(() => {
-      window.location.href = 'https://loot-link.com/s?xnmmOZhy';
-    }, 800);
-  }
-
-  // ==================== GOOGLE (pede o email real) ====================
-  function googleSignIn() {
-    playClick();
-    document.getElementById('gmodalOverlay').classList.add('show');
-    setTimeout(() => {
-      document.getElementById('googleEmailInput').focus();
-    }, 150);
-  }
-
-  function closeGoogleModal() {
-    playClick();
-    document.getElementById('gmodalOverlay').classList.remove('show');
-    document.getElementById('googleEmailInput').value = '';
-    document.getElementById('googleEmailInput').classList.remove('error');
-    document.getElementById('gmodalError').classList.remove('show');
-  }
-
-  function confirmGoogleEmail() {
-    const input = document.getElementById('googleEmailInput');
-    const email = input.value.trim();
-    const error = document.getElementById('gmodalError');
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      input.classList.add('error');
-      error.classList.add('show');
-      return;
-    }
-
-    playClick();
-    input.classList.remove('error');
-    error.classList.remove('show');
-
-    document.getElementById('gmodalOverlay').classList.remove('show');
-
-    const name = email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-    const initial = name.charAt(0).toUpperCase();
-
-    document.getElementById('accountAvatar').textContent = initial;
-    document.getElementById('accountName').textContent = name;
-    document.getElementById('accountEmail').textContent = email;
-
-    const btn = document.getElementById('googleBtn');
-    btn.classList.add('verified');
-    document.getElementById('googleBtnText').textContent = 'Verified';
-    document.getElementById('accountInfo').classList.add('show');
-
-    playClick();
-
-    setTimeout(() => {
-      hideAll();
-      show('keySection');
+    setTimeout(function () {
+      copyBtn.textContent = original;
+      copyBtn.disabled = false;
     }, 1500);
-  }
-
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter' && document.getElementById('gmodalOverlay').classList.contains('show')) {
-      confirmGoogleEmail();
-    }
-    if (e.key === 'Escape' && document.getElementById('gmodalOverlay').classList.contains('show')) {
-      closeGoogleModal();
-    }
-  });
-
-  // ==================== KEY ====================
-  function generateKey() {
-    playClick();
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let key = '';
-    for (let i = 0; i < 4; i++) {
-      for (let j = 0; j < 5; j++) key += chars.charAt(Math.floor(Math.random() * chars.length));
-      if (i < 3) key += '-';
-    }
-    const result = document.getElementById('keyResult');
-    result.textContent = key;
-    result.classList.add('show');
-  }
-
-  // ==================== INIT ====================
-  window.addEventListener('DOMContentLoaded', function() {
-    logDebug('Página carregada. URL: ' + window.location.href);
-    detectReturn();
-  });
-
-  document.addEventListener('visibilitychange', function() {
-    if (document.visibilityState === 'visible') {
-      const hasFlag = localStorage.getItem('ks_waiting') === 'true';
-      if (hasFlag) {
-        logDebug('👁️ visibilitychange detectado com flag ativa');
-        setTimeout(detectReturn, 500);
-      }
-    }
   });
 </script>
 

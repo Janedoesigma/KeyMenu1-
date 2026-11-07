@@ -1,242 +1,498 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>W-Azure v3 | Key</title>
+<title>W-azure v3 | Key System</title>
+
 <style>
-  * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    font-family: "Segoe UI", Arial, Helvetica, sans-serif;
-  }
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;600;700&display=swap');
 
-  body {
-    min-height: 100vh;
-    background: #0a0a0a;
-    background-image:
-      radial-gradient(circle at 20% 10%, #1a1a1a 0%, transparent 45%),
-      radial-gradient(circle at 80% 90%, #161616 0%, transparent 45%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-    color: #e6e6e6;
-  }
+*{box-sizing:border-box}
 
-  .container {
-    width: 100%;
-    max-width: 640px;
-    background: #121212;
-    border: 1px solid #2a2a2a;
-    border-radius: 14px;
-    padding: 34px 30px 30px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.75);
-  }
+body{
+ margin:0;
+ min-height:100vh;
+ background:radial-gradient(ellipse at top,#292d38,#111319 45%,#07080c);
+ color:#eee;
+ font-family:Inter,sans-serif;
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ padding:20px;
+}
 
-  .logo {
-    text-align: center;
-    font-size: 26px;
-    letter-spacing: 6px;
-    font-weight: 700;
-    color: #f2f2f2;
-  }
+.stars{
+ position:fixed;
+ inset:0;
+ pointer-events:none;
+ opacity:.4;
+ background-image:
+ radial-gradient(1px 1px at 10% 20%,white 99%,transparent),
+ radial-gradient(1px 1px at 80% 30%,white 99%,transparent),
+ radial-gradient(2px 2px at 40% 70%,white 99%,transparent),
+ radial-gradient(1px 1px at 90% 80%,white 99%,transparent);
+ background-size:300px 300px;
+}
 
-  .logo span {
-    color: #8a8a8a;
-  }
+.container{
+ width:100%;
+ max-width:480px;
+ position:relative;
+}
 
-  .sub {
-    text-align: center;
-    font-size: 12px;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: #6e6e6e;
-    margin-top: 8px;
-    margin-bottom: 26px;
-  }
+.header{
+ display:flex;
+ align-items:center;
+ gap:12px;
+ margin-bottom:20px;
+}
 
-  .keybox {
-    background: #1b1b1b;
-    border: 1px solid #5a5a5a;
-    border-radius: 10px;
-    padding: 20px 16px;
-    text-align: center;
-    font-family: "Consolas", "Courier New", monospace;
-    font-size: 16px;
-    letter-spacing: 1.5px;
-    color: #f5f5f5;
-    word-break: break-all;
-    min-height: 62px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: inset 0 0 22px rgba(255, 255, 255, 0.04);
-  }
+.logo{
+ width:38px;
+ height:38px;
+ border:1px solid #555d6c;
+ border-radius:11px;
+ display:grid;
+ place-items:center;
+ font-weight:800;
+ font-size:20px;
+}
 
-  .actions {
-    display: flex;
-    gap: 12px;
-    margin-top: 18px;
-    flex-wrap: wrap;
-  }
+.brand{
+ font-family:'Space Grotesk';
+ font-weight:700;
+ letter-spacing:2px;
+}
 
-  button {
-    flex: 1;
-    min-width: 150px;
-    padding: 14px 18px;
-    border-radius: 9px;
-    border: 1px solid #3a3a3a;
-    background: #1f1f1f;
-    color: #e2e2e2;
-    font-size: 14px;
-    font-weight: 600;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: background 0.2s, border-color 0.2s, transform 0.1s, color 0.2s;
-  }
+.brand small{
+ display:block;
+ font:9px Inter;
+ color:#858b98;
+ margin-top:4px;
+ letter-spacing:2px;
+}
 
-  button:hover:not(:disabled) {
-    background: #2b2b2b;
-    border-color: #5c5c5c;
-  }
+.online{
+ margin-left:auto;
+ color:#aeb5c2;
+ font-size:9px;
+}
 
-  button:active:not(:disabled) {
-    transform: scale(0.98);
-  }
+.online:before{
+ content:"";
+ display:inline-block;
+ width:6px;
+ height:6px;
+ background:#bfc8d8;
+ border-radius:50%;
+ margin-right:7px;
+}
 
-  button:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
+.panel{
+ background:linear-gradient(145deg,#1b1e27,#101218);
+ border:1px solid #353a46;
+ border-radius:20px;
+ padding:30px 25px;
+ box-shadow:0 25px 80px #0009;
+}
 
-  #copyBtn {
-    background: #e8e8e8;
-    color: #0a0a0a;
-    border-color: #e8e8e8;
-  }
+.eyebrow{
+ text-align:center;
+ font-size:9px;
+ letter-spacing:3px;
+ color:#9299a7;
+}
 
-  #copyBtn:hover:not(:disabled) {
-    background: #ffffff;
-    border-color: #ffffff;
-  }
+.orb{
+ width:78px;
+ height:78px;
+ border-radius:50%;
+ margin:25px auto 18px;
+ display:grid;
+ place-items:center;
+ background:radial-gradient(circle at 35% 30%,#687080,#1b2029 65%);
+ border:1px solid #596171;
+ box-shadow:0 0 35px #aab2c322;
+}
 
-  .divider {
-    height: 1px;
-    background: linear-gradient(to right, transparent, #2e2e2e, transparent);
-    margin: 28px 0 24px;
-  }
+.orb:after{
+ content:"";
+ width:22px;
+ height:22px;
+ background:#cbd2df;
+ border-radius:50%;
+ box-shadow:0 0 25px #cbd2df;
+}
 
-  .notice {
-    background: #151515;
-    border: 1px solid #2b2b2b;
-    border-left: 3px solid #6e6e6e;
-    border-radius: 8px;
-    padding: 18px 20px;
-  }
+h1{
+ text-align:center;
+ font:600 34px 'Space Grotesk';
+ margin:0;
+}
 
-  .notice h2 {
-    font-size: 13px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: #bdbdbd;
-    margin-bottom: 10px;
-    font-weight: 700;
-  }
+h1 span{color:#aeb7c7}
 
-  .notice p {
-    font-size: 13.5px;
-    line-height: 1.65;
-    color: #8f8f8f;
-    margin-bottom: 10px;
-  }
+.description{
+ text-align:center;
+ color:#9299a7;
+ font-size:12px;
+ margin:10px 0 22px;
+ line-height:1.6;
+}
 
-  .notice p:last-child {
-    margin-bottom: 0;
-  }
+.notice{
+ background:#0c0e13;
+ border:1px solid #303540;
+ border-radius:8px;
+ padding:12px;
+ text-align:center;
+ color:#abb2bf;
+ font-size:11px;
+ margin-bottom:20px;
+}
 
-  .notice p strong {
-    color: #d6d6d6;
-  }
+.step{
+ border-top:1px solid #303540;
+ padding-top:20px;
+ margin-top:18px;
+}
 
-  .footer {
-    text-align: center;
-    font-size: 11px;
-    letter-spacing: 2px;
-    color: #4a4a4a;
-    margin-top: 22px;
-    text-transform: uppercase;
-  }
+.step-title{
+ display:flex;
+ align-items:center;
+ gap:12px;
+ margin-bottom:16px;
+}
+
+.number{
+ border:1px solid #444b58;
+ border-radius:8px;
+ width:31px;
+ height:31px;
+ display:grid;
+ place-items:center;
+ font-size:11px;
+ color:#c5cbd5;
+}
+
+.step-title b{
+ display:block;
+ font-size:12px;
+}
+
+.step-title small{
+ display:block;
+ color:#858c99;
+ font-size:10px;
+ margin-top:4px;
+}
+
+button{
+ cursor:pointer;
+ font-family:Inter;
+ font-weight:600;
+}
+
+.btn{
+ width:100%;
+ height:47px;
+ border-radius:9px;
+ display:flex;
+ justify-content:center;
+ align-items:center;
+ gap:10px;
+ font-size:12px;
+ transition:.2s;
+}
+
+.btn:hover{
+ transform:translateY(-2px);
+ filter:brightness(1.12);
+}
+
+.primary{
+ background:linear-gradient(110deg,#e1e5ed,#aeb6c5);
+ color:#101217;
+ border:1px solid #e1e5ed;
+}
+
+.secondary{
+ background:#191c24;
+ color:#e5e8ef;
+ border:1px solid #484e5b;
+}
+
+.arrow{
+ margin-left:auto;
+ margin-right:10px;
+ font-size:16px;
+}
+
+.hidden{display:none!important}
+
+.hint{
+ color:#7e8694;
+ font-size:10px;
+ line-height:1.6;
+ margin-top:12px;
+}
+
+.keybox{margin-top:18px}
+
+.keybox label{
+ display:block;
+ color:#9299a7;
+ font-size:9px;
+ letter-spacing:2px;
+ margin-bottom:9px;
+}
+
+.keyrow{
+ display:flex;
+ gap:8px;
+}
+
+.keyrow input{
+ min-width:0;
+ flex:1;
+ background:#090b10;
+ border:1px solid #414754;
+ border-radius:8px;
+ padding:12px;
+ color:#e2e5eb;
+ font:11px monospace;
+}
+
+.copy{
+ width:45px;
+ border:1px solid #515867;
+ border-radius:8px;
+ background:#20242d;
+ color:white;
+}
+
+.copy svg{
+ width:18px;
+ fill:none;
+ stroke:currentColor;
+ stroke-width:1.8;
+}
+
+footer{
+ border-top:1px solid #303540;
+ margin-top:25px;
+ padding-top:16px;
+ display:flex;
+ justify-content:space-between;
+ color:#69717f;
+ font-size:8px;
+ letter-spacing:1.5px;
+}
+
+@media(max-width:450px){
+ .panel{padding:25px 19px}
+ h1{font-size:30px}
+}
 </style>
 </head>
+
 <body>
+<div class="stars"></div>
 
-  <div class="container">
+<div class="container">
 
-    <div class="logo">W-AZURE <span>V3</span></div>
-    <div class="sub">Exclusive Key</div>
+<header class="header">
+ <div class="logo">W</div>
+ <div class="brand">
+  W-AZURE v3
+  <small>KEY GENERATION SYSTEM</small>
+ </div>
+ <div class="online">SYSTEM ONLINE</div>
+</header>
 
-    <div class="keybox" id="keyBox">W-AZURE-V3-PS8W2-HXLCZ-S7SNB-H29DY</div>
+<main class="panel">
 
-    <div class="actions">
-      <button id="copyBtn">Copiar Key</button>
-    </div>
+<div class="eyebrow">SECURE ACCESS</div>
+<div class="orb"></div>
 
-    <div class="divider"></div>
+<h1>Get your <span>Key</span></h1>
 
-    <div class="notice">
-      <h2>Important Notice</h2>
+<p class="description">
+ Complete the steps below to access your personal key.
+</p>
 
-      <p>
-        This key is <strong>exclusive to W-Azure v3</strong> and is required to
-        <strong>enable bypass functionality</strong> for the script.
-      </p>
+<div class="notice" id="notice">
+ Ready when you are.
+</div>
 
-      <p>
-        Sharing, leaking, or exposing this key in any public place is strictly forbidden.
-        <strong>YouTubers and content creators who reveal their key to the public</strong>
-        — in videos, live streams, video descriptions, comments, social media, forums, or any other public
-        platform — <strong>will be permanently banned from the W-Azure v3 script</strong>. Their access will be
-        revoked immediately and without prior warning. Keep your key private at all times.
-      </p>
-    </div>
+<!-- ETAPA 1 -->
 
-    <div class="footer">W-Azure v3 &copy; All rights reserved</div>
+<section class="step" id="step1">
 
-  </div>
+<div class="step-title">
+ <div class="number">01</div>
+ <div>
+  <b>Get started</b>
+  <small>Continue to the access verification.</small>
+ </div>
+</div>
+
+<button class="btn primary" onclick="getStarted()">
+ Get Key <span class="arrow">↗</span>
+</button>
+
+</section>
+
+<!-- ETAPA 2 -->
+
+<section class="step hidden" id="step2">
+
+<div class="step-title">
+ <div class="number">02</div>
+ <div>
+  <b>Unlock access</b>
+  <small>Continue through LootLabs.</small>
+ </div>
+</div>
+
+<button class="btn secondary" onclick="goLoot()">
+ <img src="https://github.com/user-attachments/assets/ac69add3-349f-4454-905e-2e9b29e7b1a0"
+ width="22" height="24" alt="">
+ LootLabs
+ <span class="arrow">↗</span>
+</button>
+
+<p class="hint">
+ Return to this page after the external redirect.
+</p>
+
+</section>
+
+<!-- ETAPA 3 -->
+
+<section class="step hidden" id="step3">
+
+<div class="step-title">
+ <div class="number">03</div>
+ <div>
+  <b>Generate your key</b>
+  <small>Generate your personal access key.</small>
+ </div>
+</div>
+
+<button class="btn primary" id="generate" onclick="generateKey()">
+ Generate Key <span class="arrow">↗</span>
+</button>
+
+<div class="keybox hidden" id="keybox">
+
+<label>YOUR PERSONAL KEY</label>
+
+<div class="keyrow">
+ <input id="key" readonly>
+ <button class="copy" onclick="copyKey()" aria-label="Copy key">
+  <svg viewBox="0 0 24 24">
+   <rect x="8" y="8" width="12" height="12" rx="2"/>
+   <path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/>
+  </svg>
+ </button>
+</div>
+
+<p class="hint" id="cooldown"></p>
+
+</div>
+</section>
+
+<footer>
+ <span>W-AZURE v3</span>
+ <span>SECURE SYSTEM</span>
+</footer>
+
+</main>
+</div>
 
 <script>
-  const keyBox  = document.getElementById('keyBox');
-  const copyBtn = document.getElementById('copyBtn');
+const LOOTLABS =
+"https://kys.linkvertise.lol/DTOM/0c124253-6b9c-444d-9de5-21f97d8e0526#Dashboard";
 
-  copyBtn.addEventListener('click', async function () {
-    const key = keyBox.textContent.trim();
-    if (!key) return;
+const PREFIX = "W-azure1521962cafsjaiwbcbc";
 
-    try {
-      await navigator.clipboard.writeText(key);
-    } catch (err) {
-      const temp = document.createElement('textarea');
-      temp.value = key;
-      temp.style.position = 'fixed';
-      temp.style.opacity = '0';
-      document.body.appendChild(temp);
-      temp.select();
-      document.execCommand('copy');
-      document.body.removeChild(temp);
-    }
+function notice(text){
+ document.getElementById("notice").textContent=text;
+}
 
-    const original = copyBtn.textContent;
-    copyBtn.textContent = 'Copiado!';
-    copyBtn.disabled = true;
+function getStarted(){
+ document.getElementById("step1").classList.add("hidden");
+ document.getElementById("step2").classList.remove("hidden");
+ notice("Continue through LootLabs.");
+}
 
-    setTimeout(function () {
-      copyBtn.textContent = original;
-      copyBtn.disabled = false;
-    }, 1500);
-  });
+function goLoot(){
+ sessionStorage.setItem("wazure_return","1");
+ window.location.href=LOOTLABS;
+}
+
+function checkReturn(){
+ if(sessionStorage.getItem("wazure_return")==="1"){
+  sessionStorage.removeItem("wazure_return");
+  document.getElementById("step1").classList.add("hidden");
+  document.getElementById("step2").classList.add("hidden");
+  document.getElementById("step3").classList.remove("hidden");
+  notice("You returned to W-azure. Continue to generate your key.");
+ }
+}
+
+function generateKey(){
+ const last=Number(localStorage.getItem("wazure_last")||0);
+ const now=Date.now();
+ const remaining=86400000-(now-last);
+
+ if(last && remaining>0){
+  const hours=Math.ceil(remaining/3600000);
+  notice("You must wait "+hours+" hour(s) before generating another key.");
+  return;
+ }
+
+ const chars="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+ let suffix="";
+
+ while(PREFIX.length+suffix.length<57){
+  suffix+=chars[Math.floor(Math.random()*chars.length)];
+ }
+
+ const result=PREFIX+suffix;
+
+ document.getElementById("key").value=result;
+ document.getElementById("keybox").classList.remove("hidden");
+ document.getElementById("generate").disabled=true;
+ document.getElementById("generate").textContent="Key generated";
+
+ localStorage.setItem("wazure_last",now.toString());
+ localStorage.setItem("wazure_key",result);
+
+ document.getElementById("cooldown").textContent=
+ "Next generation available in 24 hours.";
+
+ notice("Your preview key has been generated.");
+}
+
+async function copyKey(){
+ const value=document.getElementById("key").value;
+ if(!value)return;
+
+ try{
+  await navigator.clipboard.writeText(value);
+  notice("Key copied successfully.");
+ }catch(e){
+  document.getElementById("key").select();
+  document.execCommand("copy");
+  notice("Key copied.");
+ }
+}
+
+checkReturn();
 </script>
 
 </body>

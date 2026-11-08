@@ -1,35 +1,416 @@
---[[
-    W-AZURE V3  |  by jane doe sigma
-    UI: Fluent
-    Tabs: Main (Banana Farming) / Missions / Config (Banana Setting Farm) / Volcano / Sea Event
-]]
+--// ============================================================
+--  UI - W-azure v3
+--  Tema: Ocean
+--  Biblioteca: WindUI (Footagesus)
+--  Interface substituida sem alterar o backend abaixo
+--// ============================================================
 
-repeat task.wait() until game:IsLoaded()
+local HUB_NAME = "W-azure v3"
+local OPEN_IMAGE = "rbxassetid://5009915795"
+local WindUI
 
-----------------------------------------------------------------
--- UI (Fluent)
-----------------------------------------------------------------
-local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+local function loadWindUI()
+    local urls = {
+        "https://github.com/Footagesus/WindUI/releases/latest/download/main.lua",
+        "https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua",
+    }
+    for _, url in ipairs(urls) do
+        local ok, result = pcall(function()
+            local source = game:HttpGet(url)
+            if type(loadstring) ~= "function" then
+                error("loadstring nao esta disponivel neste ambiente")
+            end
+            return loadstring(source)()
+        end)
+        if ok and result then
+            return result
+        end
+    end
+    return nil
+end
 
-local Window = Fluent:CreateWindow({
-	Title = "W-AZURE V3",
-	SubTitle = "by jane doe sigma",
-	TabWidth = 140,
-	Size = UDim2.fromOffset(500, 400),
-	Acrylic = false,
-	Theme = "Dark",
-	MinimizeKey = Enum.KeyCode.LeftControl,
-})
+WindUI = loadWindUI()
+if not WindUI then
+    error("Nao foi possivel carregar a WindUI. Verifique a conexao e se o executor suporta loadstring/HttpGet.")
+end
 
-local Tabs = {
-	Main = Window:AddTab({ Title = "Main", Icon = "home" }),
-	Missions = Window:AddTab({ Title = "Missions", Icon = "target" }),
-	Config = Window:AddTab({ Title = "Config", Icon = "settings" }),
-	Volcano = Window:AddTab({ Title = "Volcano", Icon = "mountain" }),
-	SeaEvent = Window:AddTab({ Title = "Sea Event", Icon = "waves" }),
+pcall(function()
+    WindUI:AddTheme({
+        Name = "Ocean",
+        Accent = Color3.fromHex("#2EC4E6"),
+        Dialog = Color3.fromHex("#0D2137"),
+        Outline = Color3.fromHex("#2EC4E6"),
+        Text = Color3.fromHex("#E6F4FF"),
+        Placeholder = Color3.fromHex("#7BA8C9"),
+        Background = Color3.fromHex("#061525"),
+        Button = Color3.fromHex("#1A4D6E"),
+        Icon = Color3.fromHex("#4DD0E1"),
+    })
+end)
+
+local tabIcons = {
+    Main = "sword",
+    Missions = "scroll",
+    Config = "settings",
+    Volcano = "flame",
+    ["Sea Event"] = "anchor",
 }
 
-local Options = Fluent.Options
+local function CreateWindow()
+    local window
+    local ok = pcall(function()
+        window = WindUI:CreateWindow({
+            Title = HUB_NAME,
+            Icon = OPEN_IMAGE,
+            Author = "W-azure  •  v3",
+            Folder = "Wazure_v3",
+            Size = UDim2.fromOffset(620, 460),
+            Theme = "Ocean",
+            Transparent = true,
+            Resizable = true,
+            SideBarWidth = 190,
+            HideSearchBar = false,
+            ScrollBarEnabled = true,
+        })
+    end)
+    if not ok or not window then
+        window = WindUI:CreateWindow({
+            Title = HUB_NAME,
+            Icon = OPEN_IMAGE,
+            Folder = "Wazure_v3",
+            Theme = "Dark",
+        })
+    end
+
+    pcall(function()
+        window:EditOpenButton({
+            Title = HUB_NAME,
+            Icon = OPEN_IMAGE,
+            CornerRadius = UDim.new(0, 16),
+            StrokeThickness = 2,
+            Color = ColorSequence.new(Color3.fromHex("#2EC4E6"), Color3.fromHex("#0D2137")),
+            OnlyMobile = false,
+            Enabled = true,
+            Draggable = true,
+        })
+    end)
+
+    pcall(function()
+        window:Tag({ Title = "v3", Color = Color3.fromHex("#2EC4E6") })
+    end)
+
+    return window
+end
+
+local Window = CreateWindow()
+
+local function NewTab(name, icon)
+    local tab
+    local ok = pcall(function()
+        tab = Window:Tab({ Title = name, Icon = icon or "circle" })
+    end)
+    if not ok or not tab then
+        tab = Window:Tab({ Title = name })
+    end
+    return tab
+end
+
+local Tabs = {
+    Main = NewTab("Main", tabIcons.Main),
+    Missions = NewTab("Missions", tabIcons.Missions),
+    Config = NewTab("Config", tabIcons.Config),
+    Volcano = NewTab("Volcano", tabIcons.Volcano),
+    SeaEvent = NewTab("Sea Event", tabIcons["Sea Event"]),
+}
+
+local WindOptions = {}
+
+local function optionObject(key, default)
+    WindOptions[key] = WindOptions[key] or { Value = default }
+    WindOptions[key].Value = default
+    return WindOptions[key]
+end
+
+local function safeCallback(fn, ...)
+    if type(fn) ~= "function" then return end
+    local args = table.pack(...)
+    task.spawn(function()
+        pcall(fn, table.unpack(args, 1, args.n))
+    end)
+end
+
+local function wrapControl(control, key, default)
+    local obj = optionObject(key, default)
+    local handle = {}
+    function handle:OnChanged(fn)
+        if control and type(control.OnChanged) == "function" then
+            control:OnChanged(function(v)
+                obj.Value = v
+                safeCallback(fn, v)
+            end)
+        end
+        return handle
+    end
+    function handle:SetValue(v)
+        obj.Value = v
+        pcall(function()
+            if control and type(control.SetValue) == "function" then control:SetValue(v) end
+        end)
+    end
+    function handle:SetValues(v)
+        pcall(function()
+            if control and type(control.SetValues) == "function" then control:SetValues(v) end
+        end)
+    end
+    function handle:SetDesc(v)
+        pcall(function()
+            if control and type(control.SetDesc) == "function" then control:SetDesc(v) end
+        end)
+    end
+    function handle:SetTitle(v)
+        pcall(function()
+            if control and type(control.SetTitle) == "function" then control:SetTitle(v) end
+        end)
+    end
+    return handle
+end
+
+local function makeCompatTab(tab)
+    local out = {}
+    function out:AddSection(title)
+        local section = tab
+        pcall(function()
+            local s = tab:Section({ Title = title, Opened = false })
+            if s then section = s end
+        end)
+        return section
+    end
+    function out:AddToggle(key, cfg)
+        cfg = cfg or {}
+        local value = cfg.Default == true
+        local control = tab:Toggle({
+            Title = cfg.Title or key,
+            Desc = cfg.Description,
+            Value = value,
+            Callback = function(v)
+                optionObject(key, v).Value = v
+            end,
+        })
+        return wrapControl(control, key, value)
+    end
+    function out:AddDropdown(key, cfg)
+        cfg = cfg or {}
+        local values = cfg.Values or {}
+        local multi = cfg.Multi == true
+        local initial = cfg.Default
+        if not multi and initial == nil then initial = values[1] end
+        local control = tab:Dropdown({
+            Title = cfg.Title or key,
+            Values = values,
+            Value = initial,
+            Multi = multi,
+            AllowNone = multi,
+            Callback = function(v)
+                optionObject(key, v).Value = v
+            end,
+        })
+        return wrapControl(control, key, initial)
+    end
+    function out:AddSlider(key, cfg)
+        cfg = cfg or {}
+        local default = tonumber(cfg.Default) or tonumber(cfg.Min) or 0
+        local control = tab:Slider({
+            Title = cfg.Title or key,
+            Min = tonumber(cfg.Min) or 0,
+            Max = tonumber(cfg.Max) or 100,
+            Step = cfg.Rounding and cfg.Rounding > 0 and (1 / (10 ^ cfg.Rounding)) or 1,
+            Value = { Min = tonumber(cfg.Min) or 0, Max = tonumber(cfg.Max) or 100, Default = default },
+            Callback = function(v)
+                optionObject(key, v).Value = v
+            end,
+        })
+        return wrapControl(control, key, default)
+    end
+    function out:AddButton(cfg)
+        cfg = cfg or {}
+        local control = tab:Button({
+            Title = cfg.Title or "Button",
+            Desc = cfg.Description,
+            Callback = cfg.Callback,
+        })
+        return wrapControl(control, "Button_" .. tostring(cfg.Title), false)
+    end
+    function out:AddParagraph(cfg)
+        cfg = cfg or {}
+        local control = tab:Paragraph({
+            Title = cfg.Title or " ",
+            Desc = cfg.Content or "",
+        })
+        return wrapControl(control, "Paragraph_" .. tostring(cfg.Title), false)
+    end
+    return out
+end
+
+local CompatTabs = {
+    Main = makeCompatTab(Tabs.Main),
+    Missions = makeCompatTab(Tabs.Missions),
+    Config = makeCompatTab(Tabs.Config),
+    Volcano = makeCompatTab(Tabs.Volcano),
+    SeaEvent = makeCompatTab(Tabs.SeaEvent),
+}
+
+local Fluent = {
+    Options = WindOptions,
+    Notify = function(_, cfg)
+        cfg = cfg or {}
+        pcall(function()
+            WindUI:Notify({
+                Title = cfg.Title or HUB_NAME,
+                Content = cfg.Content or "",
+                Icon = OPEN_IMAGE,
+                Duration = cfg.Duration or 5,
+            })
+        end)
+    end,
+}
+
+local function BananaDummy()
+    local obj = { Value = nil }
+    function obj:SetStage(v) self.Value = v end
+    function obj:SetText(v) self.Value = v end
+    function obj:GetNewList(v) self.Value = v end
+    function obj:SetValue(v) self.Value = v end
+    return obj
+end
+
+local BananaPageTabs = {
+    Farming = CompatTabs.Main,
+    ["Setting Farm"] = CompatTabs.Config,
+    ["Volcano Event"] = CompatTabs.Volcano,
+    ["Sea Event"] = CompatTabs.SeaEvent,
+}
+
+local BananaControlId = 0
+local function BananaOptionKey(pageName, sectionName, title)
+    BananaControlId += 1
+    local raw = table.concat({tostring(pageName or "Page"), tostring(sectionName or "Section"), tostring(title or "Control"), tostring(BananaControlId)}, "_")
+    return raw:gsub("[^%w_]", "_")
+end
+
+local function BananaListValues(list)
+    local values = {}
+    if type(list) ~= "table" then return values end
+    if #list > 0 then
+        for _, value in ipairs(list) do
+            if type(value) == "string" or type(value) == "number" then
+                table.insert(values, tostring(value))
+            elseif type(value) == "table" and value.Title then
+                table.insert(values, tostring(value.Title))
+            end
+        end
+    else
+        for key, value in pairs(list) do
+            if type(key) == "string" and type(value) == "boolean" then table.insert(values, key) end
+        end
+        table.sort(values)
+    end
+    return values
+end
+
+local function BananaSelectedMap(value, allValues)
+    local selected = {}
+    if type(value) ~= "table" then return selected end
+    for key, state in pairs(value) do
+        if type(key) == "string" and type(state) == "boolean" then
+            selected[key] = state
+        elseif type(state) == "string" or type(state) == "number" then
+            selected[tostring(state)] = true
+        end
+    end
+    if #value > 0 then for _, item in ipairs(value) do selected[tostring(item)] = true end end
+    for _, item in ipairs(allValues or {}) do selected[item] = selected[item] == true end
+    return selected
+end
+
+local function BananaDefaultMulti(value, allValues)
+    local map = BananaSelectedMap(value, allValues)
+    local result = {}
+    for _, item in ipairs(allValues or {}) do if map[item] then table.insert(result, item) end end
+    return result
+end
+
+local function BananaHandle(control, optionKey)
+    return control or BananaDummy()
+end
+
+local function BananaMakeControl(tab, pageName, sectionName, kind, config, callback)
+    if not tab then return BananaDummy() end
+    config = type(config) == "table" and config or {}
+    local title = config.Title or kind
+    local key = BananaOptionKey(pageName, sectionName, title)
+    if kind == "Toggle" then
+        local control = tab:AddToggle(key, {Title=tostring(title), Description=tostring(config.Desc or config.Description or ""), Default=config.Default == true})
+        control:OnChanged(function(v) if callback then callback(v == true) end end)
+        return control
+    elseif kind == "Dropdown" then
+        local values = BananaListValues(config.List or config.Values)
+        local multi = config.Selected == true
+        local defaultValue = config.Default
+        if multi then defaultValue = BananaDefaultMulti(defaultValue, values) elseif type(defaultValue) == "table" then defaultValue = defaultValue[1] end
+        local control = tab:AddDropdown(key, {Title=tostring(title), Values=values, Multi=multi, Default=defaultValue})
+        control:OnChanged(function(v)
+            if multi then
+                local current = BananaSelectedMap(v, values)
+                if callback then for _, item in ipairs(values) do callback(item, current[item] == true) end end
+            elseif callback then callback(v) end
+        end)
+        return control
+    elseif kind == "Slider" then
+        local control = tab:AddSlider(key, {Title=tostring(title), Min=tonumber(config.Min) or 0, Max=tonumber(config.Max) or 100, Default=tonumber(config.Default) or 0, Rounding=config.Precise and 2 or 0})
+        control:OnChanged(function(v) if callback then callback(v) end end)
+        return control
+    elseif kind == "Button" then
+        return tab:AddButton({Title=tostring(title), Description=tostring(config.Desc or config.Description or ""), Callback=function() if callback then callback() end end})
+    elseif kind == "Label" then
+        return tab:AddParagraph({Title=tostring(title), Content=tostring(config.Content or config.Desc or "")})
+    elseif kind == "Bind" then
+        return BananaDummy()
+    end
+    return BananaDummy()
+end
+
+local function BananaMakeSection(tab, pageName, sectionName)
+    if not tab then return setmetatable({}, {__index=function() return function() return BananaDummy() end end}) end
+    local section = tab:AddSection(tostring(sectionName))
+    local out = {}
+    for _, kind in ipairs({"Toggle","Dropdown","Slider","Button","Label","Box","Bind"}) do
+        out["Create"..kind] = function(config, callback) return BananaMakeControl(tab, pageName, sectionName, kind, config, callback) end
+    end
+    return out
+end
+
+local function CreateBananaFluentBridge()
+    local bridge = { Options = WindOptions }
+    bridge.CreateNoti = function(config)
+        config = type(config) == "table" and config or {}
+        pcall(function()
+            WindUI:Notify({Title=tostring(config.Title or HUB_NAME), Content=tostring(config.Desc or ""), Icon=OPEN_IMAGE, Duration=tonumber(config.ShowTime) or 5})
+        end)
+        return BananaDummy()
+    end
+    bridge.CreateMain = function()
+        local main = {}
+        main.CreatePage = function(pageConfig)
+            pageConfig = type(pageConfig) == "table" and pageConfig or {}
+            local pageName = tostring(pageConfig.Page_Name or "Page")
+            local tab = BananaPageTabs[pageName]
+            return {CreateSection=function(sectionName) return BananaMakeSection(tab, pageName, sectionName) end}
+        end
+        return main
+    end
+    return bridge
+end
+
 
 ----------------------------------------------------------------
 -- Services / references
@@ -592,312 +973,7 @@ end, 0.5)
 
 
 
-----------------------------------------------------------------
--- BANANA CAT HUB -> FLUENT BRIDGE
--- Only these Banana pages are displayed in Fluent:
--- Farming -> Main, Setting Farm -> Config,
--- Volcano Event -> Volcano, Sea Event -> Sea Event.
--- Remaining Banana pages get safe dummy controls so their
--- internal references do not stop the selected modules.
-----------------------------------------------------------------
-local BananaPageTabs = {
-    ["Farming"] = Tabs.Main,
-    ["Setting Farm"] = Tabs.Config,
-    ["Volcano Event"] = Tabs.Volcano,
-    ["Sea Event"] = Tabs.SeaEvent,
-}
-
-local function BananaDummy()
-    local obj = {}
-    local function valueArg(a, b)
-        if b ~= nil then return b end
-        return a
-    end
-    obj.SetStage = function(a, b) obj._value = valueArg(a, b) end
-    obj.SetText = function(a, b) obj._text = valueArg(a, b) end
-    obj.GetNewList = function(a, b) obj._list = valueArg(a, b) end
-    obj.SetValue = function(a, b) obj._value = valueArg(a, b) end
-    return setmetatable(obj, {
-        __index = function(self, k)
-            if k == "Value" then return rawget(self, "_value") end
-            return function() return self end
-        end,
-        __newindex = function(self, k, v) rawset(self, k, v) end,
-    })
-end
-
-local BananaControlId = 0
-
-local function BananaOptionKey(pageName, sectionName, title)
-    BananaControlId += 1
-    local raw = table.concat({
-        tostring(pageName or "Page"),
-        tostring(sectionName or "Section"),
-        tostring(title or "Control"),
-        tostring(BananaControlId),
-    }, "_")
-    return raw:gsub("[^%w_]", "_")
-end
-
-local function BananaListValues(list)
-    local values = {}
-    if type(list) ~= "table" then return values end
-
-    if #list > 0 then
-        for _, value in ipairs(list) do
-            if type(value) == "string" or type(value) == "number" then
-                table.insert(values, tostring(value))
-            elseif type(value) == "table" and value.Title then
-                table.insert(values, tostring(value.Title))
-            end
-        end
-    else
-        for key, value in pairs(list) do
-            if type(key) == "string" and type(value) == "boolean" then
-                table.insert(values, key)
-            end
-        end
-        table.sort(values)
-    end
-    return values
-end
-
-local function BananaSelectedMap(value, allValues)
-    local selected = {}
-    if type(value) ~= "table" then return selected end
-
-    for key, state in pairs(value) do
-        if type(key) == "string" and type(state) == "boolean" then
-            selected[key] = state
-        elseif type(state) == "string" or type(state) == "number" then
-            selected[tostring(state)] = true
-        end
-    end
-
-    if #value > 0 then
-        for _, item in ipairs(value) do
-            selected[tostring(item)] = true
-        end
-    end
-
-    for _, item in ipairs(allValues or {}) do
-        selected[item] = selected[item] == true
-    end
-    return selected
-end
-
-local function BananaDefaultMulti(value, allValues)
-    local map = BananaSelectedMap(value, allValues)
-    local result = {}
-    for _, item in ipairs(allValues or {}) do
-        if map[item] then table.insert(result, item) end
-    end
-    return result
-end
-
-local function BananaHandle(control, optionKey, kind)
-    local handle = {}
-
-    local function setControlValue(value)
-        if not control then return end
-        pcall(function()
-            if type(control.SetValue) == "function" then
-                control:SetValue(value)
-            elseif type(control.SetStage) == "function" then
-                control:SetStage(value)
-            end
-        end)
-    end
-
-    handle.SetStage = function(a, b)
-        setControlValue(b ~= nil and b or a)
-    end
-    handle.SetValue = function(a, b)
-        setControlValue(b ~= nil and b or a)
-    end
-    handle.SetText = function(a, b)
-        local value = tostring(b ~= nil and b or a)
-        pcall(function()
-            if control and type(control.SetDesc) == "function" then
-                control:SetDesc(value)
-            elseif control and type(control.SetTitle) == "function" then
-                control:SetTitle(value)
-            end
-        end)
-    end
-    handle.GetNewList = function(a, b)
-        local values = b ~= nil and b or a
-        pcall(function()
-            if control and type(control.SetValues) == "function" then
-                control:SetValues(values)
-            end
-        end)
-    end
-
-    return setmetatable(handle, {
-        __index = function(_, key)
-            if key == "Value" then
-                local option = Fluent.Options[optionKey]
-                return option and option.Value
-            end
-            if control then
-                local ok, value = pcall(function() return control[key] end)
-                if ok then return value end
-            end
-            return nil
-        end,
-    })
-end
-
-local function BananaMakeControl(tab, pageName, sectionName, kind, config, callback)
-    if not tab then return BananaDummy() end
-    config = type(config) == "table" and config or {}
-    local title = config.Title or kind
-    local key = BananaOptionKey(pageName, sectionName, title)
-    local control
-
-    if kind == "Toggle" then
-        control = tab:AddToggle(key, {
-            Title = tostring(title),
-            Description = tostring(config.Desc or config.Description or ""),
-            Default = config.Default == true,
-        })
-        if callback and control and type(control.OnChanged) == "function" then
-            control:OnChanged(function(value)
-                callback(value == true)
-            end)
-        end
-
-    elseif kind == "Dropdown" then
-        local values = BananaListValues(config.List or config.Values)
-        local multi = config.Selected == true
-        local defaultValue = config.Default
-        if multi then
-            defaultValue = BananaDefaultMulti(defaultValue, values)
-        elseif type(defaultValue) == "table" then
-            defaultValue = defaultValue[1]
-        end
-
-        control = tab:AddDropdown(key, {
-            Title = tostring(title),
-            Values = values,
-            Multi = multi,
-            Default = defaultValue,
-        })
-
-        if callback and control and type(control.OnChanged) == "function" then
-            if multi then
-                local previous = BananaSelectedMap(defaultValue, values)
-                control:OnChanged(function(newValue)
-                    local current = BananaSelectedMap(newValue, values)
-                    for _, item in ipairs(values) do
-                        if previous[item] ~= current[item] then
-                            callback(item, current[item] == true)
-                        end
-                    end
-                    previous = current
-                end)
-            else
-                control:OnChanged(function(value)
-                    callback(value)
-                end)
-            end
-        end
-
-    elseif kind == "Slider" then
-        control = tab:AddSlider(key, {
-            Title = tostring(title),
-            Min = tonumber(config.Min) or 0,
-            Max = tonumber(config.Max) or 100,
-            Default = tonumber(config.Default) or 0,
-            Rounding = config.Precise and 2 or 0,
-        })
-        if callback and control and type(control.OnChanged) == "function" then
-            control:OnChanged(function(value)
-                callback(value)
-            end)
-        end
-
-    elseif kind == "Button" then
-        control = tab:AddButton({
-            Title = tostring(title),
-            Description = tostring(config.Desc or config.Description or ""),
-            Callback = function()
-                if callback then callback() end
-            end,
-        })
-
-    elseif kind == "Label" then
-        control = tab:AddParagraph({
-            Title = tostring(title),
-            Content = tostring(config.Content or config.Desc or ""),
-        })
-
-    else
-        return BananaDummy()
-    end
-
-    return BananaHandle(control, key, kind)
-end
-
-local function BananaMakeSection(tab, pageName, sectionName)
-    if not tab then
-        return setmetatable({}, {
-            __index = function()
-                return function() return BananaDummy() end
-            end,
-        })
-    end
-
-    pcall(function()
-        if type(tab.AddSection) == "function" then
-            tab:AddSection(tostring(sectionName))
-        end
-    end)
-
-    local section = {}
-    for _, kind in ipairs({ "Toggle", "Dropdown", "Slider", "Button", "Label", "Box", "Bind" }) do
-        section["Create" .. kind] = function(config, callback)
-            return BananaMakeControl(tab, pageName, sectionName, kind, config, callback)
-        end
-    end
-    return section
-end
-
-local function CreateBananaFluentBridge()
-    local bridge = { Options = Fluent.Options }
-
-    bridge.CreateNoti = function(config)
-        config = type(config) == "table" and config or {}
-        pcall(function()
-            Fluent:Notify({
-                Title = tostring(config.Title or "W-AZURE V3"),
-                Content = tostring(config.Desc or ""),
-                Duration = tonumber(config.ShowTime) or 5,
-            })
-        end)
-        return BananaDummy()
-    end
-
-    bridge.CreateMain = function()
-        local main = {}
-        main.CreatePage = function(pageConfig)
-            pageConfig = type(pageConfig) == "table" and pageConfig or {}
-            local pageName = tostring(pageConfig.Page_Name or "Page")
-            local tab = BananaPageTabs[pageName]
-            local page = {}
-            page.CreateSection = function(sectionName)
-                return BananaMakeSection(tab, pageName, sectionName)
-            end
-            return page
-        end
-        return main
-    end
-
-    return bridge
-end
-
-do -- Banana Cat Hub backend adapted to Fluent
+do -- Banana Cat Hub backend adapted to WindUI
 
 
 
@@ -22110,10 +22186,15 @@ end -- Banana Cat Hub backend
 ----------------------------------------------------------------
 -- Final
 ----------------------------------------------------------------
-Window:SelectTab(1)
+pcall(function()
+    if Window.SelectTab then Window:SelectTab(1) end
+end)
 
-Fluent:Notify({
-	Title = "W-AZURE V3",
-	Content = "Loaded successfully! by jane doe sigma",
-	Duration = 5,
-})
+pcall(function()
+    WindUI:Notify({
+        Title = "W-azure v3",
+        Content = "Loaded successfully!",
+        Icon = OPEN_IMAGE,
+        Duration = 5,
+    })
+end)

@@ -1,161 +1,50 @@
 --// ============================================================
---  W-azure v3 | WindUI Ocean + UI Settings
+--  W-azure v3 | WindUI official API + UI Settings
 --  Main / Missions / Config / Volcano / Sea Event / UI Settings
 --  Backend Banana Cat Hub mantido abaixo
 --// ============================================================
 
 local HUB_NAME = "W-azure v3"
 local OPEN_IMAGE = "rbxassetid://5009915795"
-local WindUI
 
-local function loadWindUI()
-    local urls = {
-        "https://github.com/Footagesus/WindUI/releases/latest/download/main.lua",
-        "https://github.com/Footagesus/WindUI/releases/download/1.6.66/main.lua",
-        "https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua",
-    }
+-- WindUI oficial, usando a API do exemplo enviado.
+local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
 
-    for _, url in ipairs(urls) do
-        local okHttp, source = pcall(function()
-            return game:HttpGet(url)
-        end)
+local Window = WindUI:CreateWindow({
+    Title = HUB_NAME,
+    Icon = "door-open",
+    Author = "W-azure  •  v3",
+    Folder = "Wazure_v3",
+    Size = UDim2.fromOffset(580, 460),
+    MinSize = Vector2.new(560, 350),
+    MaxSize = Vector2.new(850, 560),
+    Transparent = true,
+    Theme = "Dark",
+    Resizable = true,
+    SideBarWidth = 200,
+    BackgroundImageTransparency = 0.42,
+    HideSearchBar = true,
+    ScrollBarEnabled = false,
+})
 
-        if okHttp and type(source) == "string" and #source > 100 then
-            local okCompile, chunk = pcall(loadstring, source)
-            if okCompile and type(chunk) == "function" then
-                local okRun, result = pcall(chunk)
-                if okRun and type(result) == "table" then
-                    return result
-                end
-            end
-        end
-    end
-
-    return nil
-end
-
-WindUI = loadWindUI()
-if type(WindUI) ~= "table" or type(WindUI.CreateWindow) ~= "function" then
-    return warn("[W-azure v3] WindUI nao carregou. Teste o arquivo UI-only para confirmar o suporte do executor.")
-end
-
-pcall(function()
-    WindUI:AddTheme({
-        Name = "Ocean",
-        Accent = Color3.fromHex("#2EC4E6"),
-        Dialog = Color3.fromHex("#0D2137"),
-        Outline = Color3.fromHex("#2EC4E6"),
-        Text = Color3.fromHex("#E6F4FF"),
-        Placeholder = Color3.fromHex("#7BA8C9"),
-        Background = Color3.fromHex("#061525"),
-        Button = Color3.fromHex("#1A4D6E"),
-        Icon = Color3.fromHex("#4DD0E1"),
-    })
-end)
-
--- Temas adicionais para a aba UI Settings
-pcall(function()
-    WindUI:AddTheme({
-        Name = "Purple", Accent = Color3.fromHex("#8B5CF6"),
-        Dialog = Color3.fromHex("#211A35"), Outline = Color3.fromHex("#8B5CF6"),
-        Text = Color3.fromHex("#F3EEFF"), Placeholder = Color3.fromHex("#A99BC7"),
-        Background = Color3.fromHex("#0D0917"), Button = Color3.fromHex("#37245C"),
-        Icon = Color3.fromHex("#A78BFA"),
-    })
-end)
-pcall(function()
-    WindUI:AddTheme({
-        Name = "Red", Accent = Color3.fromHex("#FF4D5E"),
-        Dialog = Color3.fromHex("#32151A"), Outline = Color3.fromHex("#FF4D5E"),
-        Text = Color3.fromHex("#FFF1F2"), Placeholder = Color3.fromHex("#C9959B"),
-        Background = Color3.fromHex("#16090B"), Button = Color3.fromHex("#5C2028"),
-        Icon = Color3.fromHex("#FF7180"),
-    })
-end)
-
-local tabIcons = {
-    Main = "sword",
-    Missions = "scroll",
-    Config = "settings",
-    Volcano = "flame",
-    ["Sea Event"] = "anchor",
-}
-
-local function CreateWindow()
-    local window
-    local ok = pcall(function()
-        window = WindUI:CreateWindow({
-            Title = HUB_NAME,
-            Icon = "door-open",
-            Author = "W-azure  •  v3",
-            Folder = "Wazure_v3",
-            Size = UDim2.fromOffset(620, 460),
-            Theme = "Ocean",
-            Transparent = true,
-            Resizable = true,
-            SideBarWidth = 190,
-            HideSearchBar = false,
-            ScrollBarEnabled = true,
-        })
-    end)
-    if not ok or not window then
-        window = WindUI:CreateWindow({
-            Title = HUB_NAME,
-            Icon = OPEN_IMAGE,
-            Folder = "Wazure_v3",
-            Theme = "Dark",
-        })
-    end
-
-    pcall(function()
-        window:EditOpenButton({
-            Title = HUB_NAME,
-            Icon = OPEN_IMAGE,
-            CornerRadius = UDim.new(0, 16),
-            StrokeThickness = 2,
-            Color = ColorSequence.new(Color3.fromHex("#2EC4E6"), Color3.fromHex("#0D2137")),
-            OnlyMobile = false,
-            Enabled = true,
-            Draggable = true,
-        })
-    end)
-
-    pcall(function()
-        window:Tag({ Title = "v3", Color = Color3.fromHex("#2EC4E6") })
-    end)
-
-    return window
-end
-
-local Window = CreateWindow()
-
-local function NewTab(name, icon)
-    local tab
-    local ok = pcall(function()
-        tab = Window:Tab({ Title = name, Icon = icon or "circle" })
-    end)
-    if not ok or not tab then
-        tab = Window:Tab({ Title = name })
-    end
-    return tab
-end
+WindUI:GetTransparency(false)
+WindUI:GetWindowSize(52)
 
 local Tabs = {
-    Main = NewTab("Main", tabIcons.Main),
-    Missions = NewTab("Missions", tabIcons.Missions),
-    Config = NewTab("Config", tabIcons.Config),
-    Volcano = NewTab("Volcano", tabIcons.Volcano),
-    SeaEvent = NewTab("Sea Event", tabIcons["Sea Event"]),
-    UISettings = NewTab("UI Settings", "settings"),
+    Main = Window:Tab({ Title = "Main", Icon = "sword", Locked = false }),
+    Missions = Window:Tab({ Title = "Missions", Icon = "scroll", Locked = false }),
+    Config = Window:Tab({ Title = "Config", Icon = "settings", Locked = false }),
+    Volcano = Window:Tab({ Title = "Volcano", Icon = "flame", Locked = false }),
+    SeaEvent = Window:Tab({ Title = "Sea Event", Icon = "anchor", Locked = false }),
+    UISettings = Window:Tab({ Title = "UI Settings", Icon = "settings", Locked = false }),
 }
 
--- Configuracoes da propria interface WindUI
+-- Configuracoes da propria interface WindUI (mantidas como solicitado).
 do
     local UIConfigTab = Tabs.UISettings
 
     UIConfigTab:Dropdown({
         Title = "Theme",
-        Desc = "Escolha o esquema de cores da interface",
         Values = (function()
             local names = {}
             for name in pairs(WindUI:GetThemes()) do
@@ -164,36 +53,25 @@ do
             table.sort(names)
             return names
         end)(),
-        Value = "Ocean",
         Callback = function(selected)
-            pcall(function() WindUI:SetTheme(selected) end)
+            WindUI:SetTheme(selected)
         end,
     })
 
     UIConfigTab:Toggle({
         Title = "Transparent",
-        Desc = "Ativa ou desativa a transparencia da janela",
         Value = false,
         Callback = function(state)
-            pcall(function() Window:ToggleTransparency(state) end)
+            Window:ToggleTransparency(state)
         end,
     })
 
     UIConfigTab:Keybind({
         Title = "Toggle UI Key",
-        Desc = "Tecla para abrir ou fechar a interface",
         Value = "RightShift",
         Callback = function(v)
-            pcall(function()
-                local key = Enum.KeyCode[v]
-                if key then Window:SetToggleKey(key) end
-            end)
+            Window:SetToggleKey(Enum.KeyCode[v])
         end,
-    })
-
-    UIConfigTab:Paragraph({
-        Title = "Cores da interface",
-        Desc = "Accent controla a cor de destaque e dos toggles conforme o tema. Background e o fundo; Button sao os botoes; Icon sao os icones; Outline sao as bordas.",
     })
 end
 
@@ -313,25 +191,14 @@ end
 
 local function makeCompatTab(tab)
     local out = {}
-    local activeTarget = tab
 
     local function createElement(methodName, config)
-        local target = activeTarget or tab
-        local method = target and target[methodName]
-
-        if type(method) ~= "function" then
-            target = tab
-            method = tab and tab[methodName]
-        end
+        local method = tab and tab[methodName]
         if type(method) ~= "function" then
             warn("[W-azure v3] WindUI element not available: " .. tostring(methodName))
             return nil
         end
-
-        local ok, element = pcall(method, target, config)
-        if not ok and target ~= tab and type(tab[methodName]) == "function" then
-            ok, element = pcall(tab[methodName], tab, config)
-        end
+        local ok, element = pcall(method, tab, config)
         if not ok then
             warn("[W-azure v3] Failed to create " .. tostring(methodName) .. ": " .. tostring(element))
             return nil
@@ -339,17 +206,10 @@ local function makeCompatTab(tab)
         return element
     end
 
+    -- A API nova nao precisa de Section: usamos Paragraph como divisor/titulo.
     function out:AddSection(title)
-        activeTarget = tab
-        if tab and type(tab.Section) == "function" then
-            local ok, section = pcall(function()
-                return tab:Section({ Title = title, Opened = false })
-            end)
-            if ok and section then
-                activeTarget = section
-            end
-        end
-        return activeTarget
+        createElement("Paragraph", { Title = tostring(title), Desc = "" })
+        return out
     end
 
     function out:AddToggle(key, cfg)
@@ -375,6 +235,7 @@ local function makeCompatTab(tab)
         if not multi and initial == nil then initial = values[1] end
         local control = createElement("Dropdown", {
             Title = cfg.Title or key,
+            Desc = cfg.Description,
             Values = values,
             Value = initial,
             Multi = multi,
@@ -389,13 +250,15 @@ local function makeCompatTab(tab)
 
     function out:AddSlider(key, cfg)
         cfg = cfg or {}
-        local default = tonumber(cfg.Default) or tonumber(cfg.Min) or 0
+        local minimum = tonumber(cfg.Min) or 0
+        local maximum = tonumber(cfg.Max) or 100
+        local default = tonumber(cfg.Default) or minimum
+        local step = cfg.Rounding and cfg.Rounding > 0 and (1 / (10 ^ cfg.Rounding)) or 1
         local control = createElement("Slider", {
             Title = cfg.Title or key,
-            Min = tonumber(cfg.Min) or 0,
-            Max = tonumber(cfg.Max) or 100,
-            Step = cfg.Rounding and cfg.Rounding > 0 and (1 / (10 ^ cfg.Rounding)) or 1,
-            Value = { Min = tonumber(cfg.Min) or 0, Max = tonumber(cfg.Max) or 100, Default = default },
+            Desc = cfg.Description,
+            Step = step,
+            Value = { Min = minimum, Max = maximum, Default = default },
             Callback = function(v)
                 optionObject(key, v).Value = v
                 safeCallback(cfg.Callback, v)
@@ -409,9 +272,8 @@ local function makeCompatTab(tab)
         local control = createElement("Button", {
             Title = cfg.Title or "Button",
             Desc = cfg.Description,
-            Callback = function()
-                safeCallback(cfg.Callback)
-            end,
+            Locked = false,
+            Callback = function() safeCallback(cfg.Callback) end,
         })
         return wrapControl(control, "Button_" .. tostring(cfg.Title), false)
     end
@@ -449,9 +311,7 @@ local function makeCompatTab(tab)
             Title = cfg.Title or key,
             Desc = cfg.Description,
             Value = bindValue,
-            Callback = function(value)
-                safeCallback(cfg.Callback, value)
-            end,
+            Callback = function(value) safeCallback(cfg.Callback, value) end,
         })
         return wrapControl(control, key, bindValue)
     end
@@ -1160,19 +1020,21 @@ end
 
 -- TAB MISSIONS
 ----------------------------------------------------------------
-Tabs.Missions:AddParagraph({
+Tabs.Missions:Paragraph({
 	Title = "Auto Elite Boss",
-	Content = "Farms the elite bosses (Diablo, Deandre, Urban) and picks up the Elite Hunter quest when needed.",
+	Desc = "Farms the elite bosses (Diablo, Deandre, Urban) and picks up the Elite Hunter quest when needed.",
 })
 
-local tgElite = Tabs.Missions:AddToggle("AutoEliteBoss", {
+local tgElite = Tabs.Missions:Toggle({
 	Title = "Auto Elite Boss",
-	Description = "Farms elite bosses automatically",
-	Default = false,
+	Desc = "Farms elite bosses automatically",
+	Value = false,
+	Callback = function(state)
+		Options.AutoEliteBoss = Options.AutoEliteBoss or { Value = false }
+		Options.AutoEliteBoss.Value = state
+		if not state then StopTween() end
+	end,
 })
-tgElite:OnChanged(function()
-	if not tgElite.Value then StopTween() end
-end)
 
 CreateLoop("AutoEliteBoss", function()
 	if not IsAlive(LP.Character) then return end
@@ -1195,9 +1057,9 @@ CreateLoop("AutoEliteBoss", function()
 	end
 end, 0.5)
 
-Tabs.Missions:AddParagraph({
+Tabs.Missions:Paragraph({
 	Title = "Auto Yama",
-	Content = "Farms elite bosses until Elite Hunter progress reaches 30, then fetches Yama at the Waterfall.",
+	Desc = "Farms elite bosses until Elite Hunter progress reaches 30, then fetches Yama at the Waterfall.",
 })
 
 local function FindYamaKatana()
@@ -1208,14 +1070,16 @@ local function FindYamaKatana()
 	return waterfall:FindFirstChild("SealedKatana")
 end
 
-local tgYama = Tabs.Missions:AddToggle("AutoYama", {
+local tgYama = Tabs.Missions:Toggle({
 	Title = "Auto Yama",
-	Description = "Fetches Yama once Elite Hunter progress is 30",
-	Default = false,
+	Desc = "Fetches Yama once Elite Hunter progress is 30",
+	Value = false,
+	Callback = function(state)
+		Options.AutoYama = Options.AutoYama or { Value = false }
+		Options.AutoYama.Value = state
+		if not state then StopTween() end
+	end,
 })
-tgYama:OnChanged(function()
-	if not tgYama.Value then StopTween() end
-end)
 
 CreateLoop("AutoYama", function()
 	if not IsAlive(LP.Character) then return end

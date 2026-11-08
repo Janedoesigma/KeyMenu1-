@@ -7,8 +7,41 @@
 local HUB_NAME = "W-azure v3"
 local OPEN_IMAGE = "rbxassetid://5009915795"
 
--- WindUI oficial, usando a API do exemplo enviado.
-local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+-- WindUI oficial, com verificações para identificar falhas no carregamento.
+local WINDUI_URL = "https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"
+
+if type(loadstring) ~= "function" then
+    error("W-azure: este executor não disponibilizou loadstring(). Ative o suporte a loadstring no executor ou use um executor compatível.", 0)
+end
+
+local httpOk, winduiSource = pcall(function()
+    return game:HttpGet(WINDUI_URL)
+end)
+if not httpOk then
+    error("W-azure: não foi possível baixar a WindUI. Verifique a conexão e o acesso ao GitHub. Detalhe: " .. tostring(winduiSource), 0)
+end
+if type(winduiSource) ~= "string" or winduiSource == "" then
+    error("W-azure: o link da WindUI retornou um conteúdo vazio ou inválido.", 0)
+end
+
+local compileOk, winduiLoader, compileError = pcall(function()
+    local loader, err = loadstring(winduiSource)
+    return loader, err
+end)
+if not compileOk then
+    error("W-azure: falha ao preparar o código da WindUI: " .. tostring(winduiLoader), 0)
+end
+if type(winduiLoader) ~= "function" then
+    error("W-azure: o conteúdo baixado não pôde ser compilado. Detalhe: " .. tostring(compileError), 0)
+end
+
+local runOk, WindUI = pcall(winduiLoader)
+if not runOk then
+    error("W-azure: a WindUI apresentou erro durante a inicialização: " .. tostring(WindUI), 0)
+end
+if type(WindUI) ~= "table" then
+    error("W-azure: a WindUI carregou, mas não retornou uma tabela válida. Retorno: " .. tostring(WindUI), 0)
+end
 
 local Window = WindUI:CreateWindow({
     Title = HUB_NAME,

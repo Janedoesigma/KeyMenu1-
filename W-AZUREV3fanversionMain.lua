@@ -1,37 +1,42 @@
 --// ============================================================
---  UI - W-azure v3
---  Tema: Ocean
---  Biblioteca: WindUI (Footagesus)
---  Interface substituida sem alterar o backend abaixo
+--  W-azure v3 | WindUI Ocean + UI Settings
+--  Main / Missions / Config / Volcano / Sea Event / UI Settings
+--  Backend Banana Cat Hub mantido abaixo
 --// ============================================================
 
 local HUB_NAME = "W-azure v3"
-local OPEN_IMAGE = "rbxassetid://347301795"
+local OPEN_IMAGE = "rbxassetid://5009915795"
 local WindUI
 
 local function loadWindUI()
     local urls = {
         "https://github.com/Footagesus/WindUI/releases/latest/download/main.lua",
+        "https://github.com/Footagesus/WindUI/releases/download/1.6.66/main.lua",
         "https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua",
     }
+
     for _, url in ipairs(urls) do
-        local ok, result = pcall(function()
-            local source = game:HttpGet(url)
-            if type(loadstring) ~= "function" then
-                error("loadstring nao esta disponivel neste ambiente")
-            end
-            return loadstring(source)()
+        local okHttp, source = pcall(function()
+            return game:HttpGet(url)
         end)
-        if ok and result then
-            return result
+
+        if okHttp and type(source) == "string" and #source > 100 then
+            local okCompile, chunk = pcall(loadstring, source)
+            if okCompile and type(chunk) == "function" then
+                local okRun, result = pcall(chunk)
+                if okRun and type(result) == "table" then
+                    return result
+                end
+            end
         end
     end
+
     return nil
 end
 
 WindUI = loadWindUI()
-if not WindUI then
-    error("Nao foi possivel carregar a WindUI. Verifique a conexao e se o executor suporta loadstring/HttpGet.")
+if type(WindUI) ~= "table" or type(WindUI.CreateWindow) ~= "function" then
+    return warn("[W-azure v3] WindUI nao carregou. Teste o arquivo UI-only para confirmar o suporte do executor.")
 end
 
 pcall(function()
@@ -48,6 +53,26 @@ pcall(function()
     })
 end)
 
+-- Temas adicionais para a aba UI Settings
+pcall(function()
+    WindUI:AddTheme({
+        Name = "Purple", Accent = Color3.fromHex("#8B5CF6"),
+        Dialog = Color3.fromHex("#211A35"), Outline = Color3.fromHex("#8B5CF6"),
+        Text = Color3.fromHex("#F3EEFF"), Placeholder = Color3.fromHex("#A99BC7"),
+        Background = Color3.fromHex("#0D0917"), Button = Color3.fromHex("#37245C"),
+        Icon = Color3.fromHex("#A78BFA"),
+    })
+end)
+pcall(function()
+    WindUI:AddTheme({
+        Name = "Red", Accent = Color3.fromHex("#FF4D5E"),
+        Dialog = Color3.fromHex("#32151A"), Outline = Color3.fromHex("#FF4D5E"),
+        Text = Color3.fromHex("#FFF1F2"), Placeholder = Color3.fromHex("#C9959B"),
+        Background = Color3.fromHex("#16090B"), Button = Color3.fromHex("#5C2028"),
+        Icon = Color3.fromHex("#FF7180"),
+    })
+end)
+
 local tabIcons = {
     Main = "sword",
     Missions = "scroll",
@@ -61,7 +86,7 @@ local function CreateWindow()
     local ok = pcall(function()
         window = WindUI:CreateWindow({
             Title = HUB_NAME,
-            Icon = OPEN_IMAGE,
+            Icon = "door-open",
             Author = "W-azure  •  v3",
             Folder = "Wazure_v3",
             Size = UDim2.fromOffset(620, 460),
@@ -121,7 +146,56 @@ local Tabs = {
     Config = NewTab("Config", tabIcons.Config),
     Volcano = NewTab("Volcano", tabIcons.Volcano),
     SeaEvent = NewTab("Sea Event", tabIcons["Sea Event"]),
+    UISettings = NewTab("UI Settings", "settings"),
 }
+
+-- Configuracoes da propria interface WindUI
+do
+    local UIConfigTab = Tabs.UISettings
+
+    UIConfigTab:Dropdown({
+        Title = "Theme",
+        Desc = "Escolha o esquema de cores da interface",
+        Values = (function()
+            local names = {}
+            for name in pairs(WindUI:GetThemes()) do
+                table.insert(names, name)
+            end
+            table.sort(names)
+            return names
+        end)(),
+        Value = "Ocean",
+        Callback = function(selected)
+            pcall(function() WindUI:SetTheme(selected) end)
+        end,
+    })
+
+    UIConfigTab:Toggle({
+        Title = "Transparent",
+        Desc = "Ativa ou desativa a transparencia da janela",
+        Value = false,
+        Callback = function(state)
+            pcall(function() Window:ToggleTransparency(state) end)
+        end,
+    })
+
+    UIConfigTab:Keybind({
+        Title = "Toggle UI Key",
+        Desc = "Tecla para abrir ou fechar a interface",
+        Value = "RightShift",
+        Callback = function(v)
+            pcall(function()
+                local key = Enum.KeyCode[v]
+                if key then Window:SetToggleKey(key) end
+            end)
+        end,
+    })
+
+    UIConfigTab:Paragraph({
+        Title = "Cores da interface",
+        Desc = "Accent controla a cor de destaque e dos toggles conforme o tema. Background e o fundo; Button sao os botoes; Icon sao os icones; Outline sao as bordas.",
+    })
+end
 
 local WindOptions = {}
 

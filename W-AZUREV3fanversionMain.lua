@@ -216,69 +216,164 @@ end
 local function wrapControl(control, key, default)
     local obj = optionObject(key, default)
     local handle = {}
-    function handle:OnChanged(fn)
-        if control and type(control.OnChanged) == "function" then
-            control:OnChanged(function(v)
-                obj.Value = v
-                safeCallback(fn, v)
+
+    local function argumentValue(first, second)
+        if first == handle then return second end
+        return first
+    end
+
+    handle.OnChanged = function(first, second)
+        local fn = argumentValue(first, second)
+        if type(fn) == "function" and control and type(control.OnChanged) == "function" then
+            pcall(function()
+                control:OnChanged(function(v)
+                    obj.Value = v
+                    safeCallback(fn, v)
+                end)
             end)
         end
         return handle
     end
-    function handle:SetValue(v)
-        obj.Value = v
-        pcall(function()
-            if control and type(control.SetValue) == "function" then control:SetValue(v) end
-        end)
+
+    handle.SetValue = function(first, second)
+        local value = argumentValue(first, second)
+        obj.Value = value
+        if control then
+            local setter = control.Set or control.SetValue or control.Select
+            if type(setter) == "function" then
+                pcall(setter, control, value)
+            end
+        end
     end
-    function handle:SetValues(v)
-        pcall(function()
-            if control and type(control.SetValues) == "function" then control:SetValues(v) end
-        end)
+
+    handle.SetValues = function(first, second)
+        local values = argumentValue(first, second)
+        obj.Value = values
+        if control then
+            local setter = control.Refresh or control.SetValues
+            if type(setter) == "function" then
+                pcall(setter, control, values)
+            end
+        end
     end
-    function handle:SetDesc(v)
-        pcall(function()
-            if control and type(control.SetDesc) == "function" then control:SetDesc(v) end
-        end)
+
+    handle.SetDesc = function(first, second)
+        local value = argumentValue(first, second)
+        if control and type(control.SetDesc) == "function" then
+            pcall(control.SetDesc, control, tostring(value or ""))
+        end
     end
-    function handle:SetTitle(v)
-        pcall(function()
-            if control and type(control.SetTitle) == "function" then control:SetTitle(v) end
-        end)
+
+    handle.SetTitle = function(first, second)
+        local value = argumentValue(first, second)
+        obj.Value = value
+        if control and type(control.SetTitle) == "function" then
+            pcall(control.SetTitle, control, tostring(value or ""))
+        end
     end
+
+    -- Fluent labels used SetText/GetText; map them to WindUI Paragraph.
+    handle.SetText = function(first, second)
+        local value = argumentValue(first, second)
+        obj.Value = value
+        if control then
+            if type(control.SetTitle) == "function" then
+                pcall(control.SetTitle, control, tostring(value or ""))
+            elseif type(control.SetDesc) == "function" then
+                pcall(control.SetDesc, control, tostring(value or ""))
+            end
+        end
+    end
+
+    handle.GetText = function()
+        return obj.Value == nil and "" or tostring(obj.Value)
+    end
+
+    handle.GetValue = function()
+        return obj.Value
+    end
+
+    handle.SetStage = handle.SetValue
+    handle.GetNewList = handle.SetValues
+
+    handle.SetSubValue = function(first, second, third)
+        local keyName, value
+        if first == handle then
+            keyName, value = second, third
+        else
+            keyName, value = first, second
+        end
+        if control and type(control.SetSubValue) == "function" then
+            pcall(control.SetSubValue, control, keyName, value)
+        end
+    end
+
     return handle
 end
 
 local function makeCompatTab(tab)
     local out = {}
-    function out:AddSection(title)
-        local section = tab
-        pcall(function()
-            local s = tab:Section({ Title = title, Opened = false })
-            if s then section = s end
-        end)
-        return section
+    local activeTarget = tab
+
+    local function createElement(methodName, config)
+        local target = activeTarget or tab
+        local method = target and target[methodName]
+
+        if type(method) ~= "function" then
+            target = tab
+            method = tab and tab[methodName]
+        end
+        if type(method) ~= "function" then
+            warn("[W-azure v3] WindUI element not available: " .. tostring(methodName))
+            return nil
+        end
+
+        local ok, element = pcall(method, target, config)
+        if not ok and target ~= tab and type(tab[methodName]) == "function" then
+            ok, element = pcall(tab[methodName], tab, config)
+        end
+        if not ok then
+            warn("[W-azure v3] Failed to create " .. tostring(methodName) .. ": " .. tostring(element))
+            return nil
+        end
+        return element
     end
+
+    function out:AddSection(title)
+        activeTarget = tab
+        if tab and type(tab.Section) == "function" then
+            local ok, section = pcall(function()
+                return tab:Section({ Title = title, Opened = false })
+            end)
+            if ok and section then
+                activeTarget = section
+            end
+        end
+        return activeTarget
+    end
+
     function out:AddToggle(key, cfg)
         cfg = cfg or {}
         local value = cfg.Default == true
-        local control = tab:Toggle({
+        local control = createElement("Toggle", {
             Title = cfg.Title or key,
             Desc = cfg.Description,
             Value = value,
             Callback = function(v)
                 optionObject(key, v).Value = v
+                safeCallback(cfg.Callback, v)
             end,
         })
         return wrapControl(control, key, value)
     end
+
     function out:AddDropdown(key, cfg)
         cfg = cfg or {}
         local values = cfg.Values or {}
         local multi = cfg.Multi == true
         local initial = cfg.Default
         if not multi and initial == nil then initial = values[1] end
-        local control = tab:Dropdown({
+        local control = createElement("Dropdown", {
             Title = cfg.Title or key,
             Values = values,
             Value = initial,
@@ -286,14 +381,16 @@ local function makeCompatTab(tab)
             AllowNone = multi,
             Callback = function(v)
                 optionObject(key, v).Value = v
+                safeCallback(cfg.Callback, v)
             end,
         })
         return wrapControl(control, key, initial)
     end
+
     function out:AddSlider(key, cfg)
         cfg = cfg or {}
         local default = tonumber(cfg.Default) or tonumber(cfg.Min) or 0
-        local control = tab:Slider({
+        local control = createElement("Slider", {
             Title = cfg.Title or key,
             Min = tonumber(cfg.Min) or 0,
             Max = tonumber(cfg.Max) or 100,
@@ -301,27 +398,64 @@ local function makeCompatTab(tab)
             Value = { Min = tonumber(cfg.Min) or 0, Max = tonumber(cfg.Max) or 100, Default = default },
             Callback = function(v)
                 optionObject(key, v).Value = v
+                safeCallback(cfg.Callback, v)
             end,
         })
         return wrapControl(control, key, default)
     end
+
     function out:AddButton(cfg)
         cfg = cfg or {}
-        local control = tab:Button({
+        local control = createElement("Button", {
             Title = cfg.Title or "Button",
             Desc = cfg.Description,
-            Callback = cfg.Callback,
+            Callback = function()
+                safeCallback(cfg.Callback)
+            end,
         })
         return wrapControl(control, "Button_" .. tostring(cfg.Title), false)
     end
+
     function out:AddParagraph(cfg)
         cfg = cfg or {}
-        local control = tab:Paragraph({
+        local control = createElement("Paragraph", {
             Title = cfg.Title or " ",
             Desc = cfg.Content or "",
         })
-        return wrapControl(control, "Paragraph_" .. tostring(cfg.Title), false)
+        return wrapControl(control, "Paragraph_" .. tostring(cfg.Title), cfg.Content or "")
     end
+
+    function out:AddBox(key, cfg)
+        cfg = cfg or {}
+        local default = cfg.Default == nil and "" or tostring(cfg.Default)
+        local control = createElement("Input", {
+            Title = cfg.Title or key,
+            Desc = cfg.Description,
+            Value = default,
+            Placeholder = cfg.Placeholder or "Type here",
+            Type = "Input",
+            Callback = function(value)
+                optionObject(key, value).Value = value
+                safeCallback(cfg.Callback, value)
+            end,
+        })
+        return wrapControl(control, key, default)
+    end
+
+    function out:AddBind(key, cfg)
+        cfg = cfg or {}
+        local bindValue = cfg.Key or cfg.Value or "RightShift"
+        local control = createElement("Keybind", {
+            Title = cfg.Title or key,
+            Desc = cfg.Description,
+            Value = bindValue,
+            Callback = function(value)
+                safeCallback(cfg.Callback, value)
+            end,
+        })
+        return wrapControl(control, key, bindValue)
+    end
+
     return out
 end
 
@@ -350,16 +484,45 @@ local Fluent = {
 
 local function BananaDummy()
     local obj = { Value = nil }
-    function obj:SetStage(v) self.Value = v end
-    function obj:SetText(v) self.Value = v end
-    function obj:GetNewList(v) self.Value = v end
-    function obj:SetValue(v) self.Value = v end
+    local function valueOf(first, second)
+        if first == obj then return second end
+        return first
+    end
+    obj.SetStage = function(first, second) obj.Value = valueOf(first, second) end
+    obj.SetText = function(first, second) obj.Value = valueOf(first, second) end
+    obj.GetNewList = function(first, second) obj.Value = valueOf(first, second) end
+    obj.SetValue = function(first, second) obj.Value = valueOf(first, second) end
+    obj.SetValues = function(first, second) obj.Value = valueOf(first, second) end
+    obj.GetText = function() return obj.Value == nil and "" or tostring(obj.Value) end
+    obj.GetValue = function() return obj.Value end
+    obj.SetTitle = obj.SetText
+    obj.SetDesc = obj.SetText
     return obj
 end
 
 local BananaPageTabs = {
-    Farming = CompatTabs.Main,
+    -- MAIN: loja, status, jogador e ferramentas visuais
+    ["Shop"] = CompatTabs.Main,
+    ["Status And Server"] = CompatTabs.Main,
+    ["LocalPlayer"] = CompatTabs.Main,
+    ["ESP"] = CompatTabs.Main,
+    ["PVP"] = CompatTabs.Main,
+
+    -- MISSIONS: farms, raids, progresso e itens
+    ["Farming"] = CompatTabs.Missions,
+    ["Stack Farming"] = CompatTabs.Missions,
+    ["Farming Other"] = CompatTabs.Missions,
+    ["Fruit and Raid, Dungeon"] = CompatTabs.Missions,
+    ["Upgrade Race"] = CompatTabs.Missions,
+    ["Get and Upgrade Items"] = CompatTabs.Missions,
+
+    -- CONFIG: configurações, skills e webhook
     ["Setting Farm"] = CompatTabs.Config,
+    ["Hold and Select Skill"] = CompatTabs.Config,
+    ["Tab Webhook"] = CompatTabs.Config,
+    ["Setting"] = CompatTabs.Config,
+
+    -- EVENTOS em abas próprias
     ["Volcano Event"] = CompatTabs.Volcano,
     ["Sea Event"] = CompatTabs.SeaEvent,
 }
@@ -422,33 +585,78 @@ local function BananaMakeControl(tab, pageName, sectionName, kind, config, callb
     config = type(config) == "table" and config or {}
     local title = config.Title or kind
     local key = BananaOptionKey(pageName, sectionName, title)
+
     if kind == "Toggle" then
-        local control = tab:AddToggle(key, {Title=tostring(title), Description=tostring(config.Desc or config.Description or ""), Default=config.Default == true})
-        control:OnChanged(function(v) if callback then callback(v == true) end end)
-        return control
+        return tab:AddToggle(key, {
+            Title = tostring(title),
+            Description = tostring(config.Desc or config.Description or ""),
+            Default = config.Default == true,
+            Callback = function(v)
+                if callback then callback(v == true) end
+            end,
+        })
     elseif kind == "Dropdown" then
         local values = BananaListValues(config.List or config.Values)
         local multi = config.Selected == true
         local defaultValue = config.Default
-        if multi then defaultValue = BananaDefaultMulti(defaultValue, values) elseif type(defaultValue) == "table" then defaultValue = defaultValue[1] end
-        local control = tab:AddDropdown(key, {Title=tostring(title), Values=values, Multi=multi, Default=defaultValue})
-        control:OnChanged(function(v)
-            if multi then
-                local current = BananaSelectedMap(v, values)
-                if callback then for _, item in ipairs(values) do callback(item, current[item] == true) end end
-            elseif callback then callback(v) end
-        end)
-        return control
+        if multi then
+            defaultValue = BananaDefaultMulti(defaultValue, values)
+        elseif type(defaultValue) == "table" then
+            defaultValue = defaultValue[1]
+        end
+        return tab:AddDropdown(key, {
+            Title = tostring(title),
+            Values = values,
+            Multi = multi,
+            Default = defaultValue,
+            Callback = function(v)
+                if multi then
+                    local current = BananaSelectedMap(v, values)
+                    if callback then
+                        for _, item in ipairs(values) do
+                            callback(item, current[item] == true)
+                        end
+                    end
+                elseif callback then
+                    callback(v)
+                end
+            end,
+        })
     elseif kind == "Slider" then
-        local control = tab:AddSlider(key, {Title=tostring(title), Min=tonumber(config.Min) or 0, Max=tonumber(config.Max) or 100, Default=tonumber(config.Default) or 0, Rounding=config.Precise and 2 or 0})
-        control:OnChanged(function(v) if callback then callback(v) end end)
-        return control
+        return tab:AddSlider(key, {
+            Title = tostring(title),
+            Min = tonumber(config.Min) or 0,
+            Max = tonumber(config.Max) or 100,
+            Default = tonumber(config.Default) or 0,
+            Rounding = config.Precise and 2 or 0,
+            Callback = callback,
+        })
     elseif kind == "Button" then
-        return tab:AddButton({Title=tostring(title), Description=tostring(config.Desc or config.Description or ""), Callback=function() if callback then callback() end end})
+        return tab:AddButton({
+            Title = tostring(title),
+            Description = tostring(config.Desc or config.Description or ""),
+            Callback = callback,
+        })
     elseif kind == "Label" then
-        return tab:AddParagraph({Title=tostring(title), Content=tostring(config.Content or config.Desc or "")})
+        return tab:AddParagraph({
+            Title = tostring(title),
+            Content = tostring(config.Content or config.Desc or ""),
+        })
+    elseif kind == "Box" then
+        return tab:AddBox(key, {
+            Title = tostring(title),
+            Description = tostring(config.Desc or config.Description or ""),
+            Placeholder = tostring(config.Placeholder or "Type here"),
+            Default = config.Default,
+            Number = config.Number == true,
+            Callback = callback,
+        })
     elseif kind == "Bind" then
-        return BananaDummy()
+        return tab:AddBind(key, {
+            Title = tostring(title),
+            Key = config.Key or config.Default or "RightShift",
+            Callback = callback,
+        })
     end
     return BananaDummy()
 end
@@ -478,6 +686,10 @@ local function CreateBananaFluentBridge()
             pageConfig = type(pageConfig) == "table" and pageConfig or {}
             local pageName = tostring(pageConfig.Page_Name or "Page")
             local tab = BananaPageTabs[pageName]
+            if not tab then
+                warn("[W-azure v3] Page without a tab mapping: " .. pageName .. " (using Missions as fallback)")
+                tab = CompatTabs.Missions
+            end
             return {CreateSection=function(sectionName) return BananaMakeSection(tab, pageName, sectionName) end}
         end
         return main

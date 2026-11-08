@@ -1,595 +1,87 @@
---// ============================================================
---  W-azure v3 | WindUI official API + UI Settings
---  Main / Missions / Config / Volcano / Sea Event / UI Settings
---  Backend Banana Cat Hub mantido abaixo
---// ============================================================
+--[[
+    W-AZURE V3  |  by jane doe sigma
+    UI: Fluent
+    Tabs: Main (Banana Farming) / Missions / Config (Banana Setting Farm) / Volcano / Sea Event
+]]
 
-local HUB_NAME = "W-azure v3"
-local OPEN_IMAGE = "rbxassetid://5009915795"
+repeat task.wait() until game:IsLoaded()
 
--- WindUI oficial, com verificações para identificar falhas no carregamento.
-local WINDUI_URL = "https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"
-
-if type(loadstring) ~= "function" then
-    error("W-azure: este executor não disponibilizou loadstring(). Ative o suporte a loadstring no executor ou use um executor compatível.", 0)
+----------------------------------------------------------------
+-- UI (Fluent) - carregamento protegido para identificar falhas do executor
+----------------------------------------------------------------
+local function SafeLoadstring(source, label)
+    if type(loadstring) ~= "function" then
+        warn("[W-AZURE] loadstring indisponivel; nao foi possivel carregar " .. tostring(label or "codigo"))
+        return nil
+    end
+    local ok, chunkOrError = pcall(loadstring, source)
+    if not ok or type(chunkOrError) ~= "function" then
+        warn("[W-AZURE] Falha ao compilar " .. tostring(label or "codigo") .. ": " .. tostring(chunkOrError))
+        return nil
+    end
+    return chunkOrError
 end
 
-local httpOk, winduiSource = pcall(function()
-    return game:HttpGet(WINDUI_URL)
-end)
-if not httpOk then
-    error("W-azure: não foi possível baixar a WindUI. Verifique a conexão e o acesso ao GitHub. Detalhe: " .. tostring(winduiSource), 0)
-end
-if type(winduiSource) ~= "string" or winduiSource == "" then
-    error("W-azure: o link da WindUI retornou um conteúdo vazio ou inválido.", 0)
+local FLUENT_URL = "https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"
+local function LoadFluent()
+    local okDownload, sourceOrError = pcall(function()
+        return game:HttpGet(FLUENT_URL)
+    end)
+    if not okDownload or type(sourceOrError) ~= "string" or #sourceOrError < 100 then
+        error("Nao foi possivel baixar a Fluent. HttpGet: " .. tostring(sourceOrError))
+    end
+
+    local chunk = SafeLoadstring(sourceOrError, "Fluent UI")
+    if not chunk then
+        error("O executor nao conseguiu compilar a biblioteca Fluent.")
+    end
+
+    local okRun, libraryOrError = pcall(chunk)
+    if not okRun then
+        error("Erro ao iniciar a Fluent: " .. tostring(libraryOrError))
+    end
+    if type(libraryOrError) ~= "table" or type(libraryOrError.CreateWindow) ~= "function" then
+        error("A biblioteca baixada nao retornou a API Fluent esperada.")
+    end
+    return libraryOrError
 end
 
-local compileOk, winduiLoader, compileError = pcall(function()
-    local loader, err = loadstring(winduiSource)
-    return loader, err
-end)
-if not compileOk then
-    error("W-azure: falha ao preparar o código da WindUI: " .. tostring(winduiLoader), 0)
+local fluentOk, Fluent = pcall(LoadFluent)
+if not fluentOk then
+    warn("[W-AZURE] UI Fluent nao iniciou: " .. tostring(Fluent))
+    return
 end
-if type(winduiLoader) ~= "function" then
-    error("W-azure: o conteúdo baixado não pôde ser compilado. Detalhe: " .. tostring(compileError), 0)
+if type(getgenv) ~= "function" then
+    warn("[W-AZURE] Este script precisa de um executor que forneca getgenv(). A UI Fluent abriu, mas o backend foi interrompido.")
+    return
 end
-
-local runOk, WindUI = pcall(winduiLoader)
-if not runOk then
-    error("W-azure: a WindUI apresentou erro durante a inicialização: " .. tostring(WindUI), 0)
-end
-if type(WindUI) ~= "table" then
-    error("W-azure: a WindUI carregou, mas não retornou uma tabela válida. Retorno: " .. tostring(WindUI), 0)
+if type(debug) ~= "table"
+    or type(debug.getupvalue) ~= "function"
+    or type(debug.getupvalues) ~= "function"
+    or type(debug.setupvalue) ~= "function" then
+    warn("[W-AZURE] O executor nao oferece as funcoes debug.getupvalue/getupvalues/setupvalue exigidas pelo backend.")
+    return
 end
 
-local Window = WindUI:CreateWindow({
-    Title = HUB_NAME,
-    Icon = "door-open",
-    Author = "W-azure  •  v3",
-    Folder = "Wazure_v3",
-    Size = UDim2.fromOffset(580, 460),
-    MinSize = Vector2.new(560, 350),
-    MaxSize = Vector2.new(850, 560),
-    Transparent = true,
-    Theme = "Dark",
-    Resizable = true,
-    SideBarWidth = 200,
-    BackgroundImageTransparency = 0.42,
-    HideSearchBar = true,
-    ScrollBarEnabled = false,
+local Window = Fluent:CreateWindow({
+	Title = "W-AZURE V3",
+	SubTitle = "by jane doe sigma",
+	TabWidth = 140,
+	Size = UDim2.fromOffset(500, 400),
+	Acrylic = false,
+	Theme = "Dark",
+	MinimizeKey = Enum.KeyCode.LeftControl,
 })
 
-WindUI:GetTransparency(false)
-WindUI:GetWindowSize(52)
-
 local Tabs = {
-    Main = Window:Tab({ Title = "Main", Icon = "sword", Locked = false }),
-    Missions = Window:Tab({ Title = "Missions", Icon = "scroll", Locked = false }),
-    Config = Window:Tab({ Title = "Config", Icon = "settings", Locked = false }),
-    Volcano = Window:Tab({ Title = "Volcano", Icon = "flame", Locked = false }),
-    SeaEvent = Window:Tab({ Title = "Sea Event", Icon = "anchor", Locked = false }),
-    UISettings = Window:Tab({ Title = "UI Settings", Icon = "settings", Locked = false }),
+	Main = Window:AddTab({ Title = "Main", Icon = "home" }),
+	Missions = Window:AddTab({ Title = "Missions", Icon = "target" }),
+	Config = Window:AddTab({ Title = "Config", Icon = "settings" }),
+	Volcano = Window:AddTab({ Title = "Volcano", Icon = "mountain" }),
+	SeaEvent = Window:AddTab({ Title = "Sea Event", Icon = "waves" }),
 }
 
--- Configuracoes da propria interface WindUI (mantidas como solicitado).
-do
-    local UIConfigTab = Tabs.UISettings
-
-    UIConfigTab:Dropdown({
-        Title = "Theme",
-        Values = (function()
-            local names = {}
-            for name in pairs(WindUI:GetThemes()) do
-                table.insert(names, name)
-            end
-            table.sort(names)
-            return names
-        end)(),
-        Callback = function(selected)
-            WindUI:SetTheme(selected)
-        end,
-    })
-
-    UIConfigTab:Toggle({
-        Title = "Transparent",
-        Value = false,
-        Callback = function(state)
-            Window:ToggleTransparency(state)
-        end,
-    })
-
-    UIConfigTab:Keybind({
-        Title = "Toggle UI Key",
-        Value = "RightShift",
-        Callback = function(v)
-            Window:SetToggleKey(Enum.KeyCode[v])
-        end,
-    })
-end
-
-local WindOptions = {}
-
-local function optionObject(key, default)
-    WindOptions[key] = WindOptions[key] or { Value = default }
-    WindOptions[key].Value = default
-    return WindOptions[key]
-end
-
-local function safeCallback(fn, ...)
-    if type(fn) ~= "function" then return end
-    local args = table.pack(...)
-    task.spawn(function()
-        pcall(fn, table.unpack(args, 1, args.n))
-    end)
-end
-
-local function wrapControl(control, key, default)
-    local obj = optionObject(key, default)
-    local handle = {}
-
-    local function argumentValue(first, second)
-        if first == handle then return second end
-        return first
-    end
-
-    handle.OnChanged = function(first, second)
-        local fn = argumentValue(first, second)
-        if type(fn) == "function" and control and type(control.OnChanged) == "function" then
-            pcall(function()
-                control:OnChanged(function(v)
-                    obj.Value = v
-                    safeCallback(fn, v)
-                end)
-            end)
-        end
-        return handle
-    end
-
-    handle.SetValue = function(first, second)
-        local value = argumentValue(first, second)
-        obj.Value = value
-        if control then
-            local setter = control.Set or control.SetValue or control.Select
-            if type(setter) == "function" then
-                pcall(setter, control, value)
-            end
-        end
-    end
-
-    handle.SetValues = function(first, second)
-        local values = argumentValue(first, second)
-        obj.Value = values
-        if control then
-            local setter = control.Refresh or control.SetValues
-            if type(setter) == "function" then
-                pcall(setter, control, values)
-            end
-        end
-    end
-
-    handle.SetDesc = function(first, second)
-        local value = argumentValue(first, second)
-        if control and type(control.SetDesc) == "function" then
-            pcall(control.SetDesc, control, tostring(value or ""))
-        end
-    end
-
-    handle.SetTitle = function(first, second)
-        local value = argumentValue(first, second)
-        obj.Value = value
-        if control and type(control.SetTitle) == "function" then
-            pcall(control.SetTitle, control, tostring(value or ""))
-        end
-    end
-
-    -- Fluent labels used SetText/GetText; map them to WindUI Paragraph.
-    handle.SetText = function(first, second)
-        local value = argumentValue(first, second)
-        obj.Value = value
-        if control then
-            if type(control.SetTitle) == "function" then
-                pcall(control.SetTitle, control, tostring(value or ""))
-            elseif type(control.SetDesc) == "function" then
-                pcall(control.SetDesc, control, tostring(value or ""))
-            end
-        end
-    end
-
-    handle.GetText = function()
-        return obj.Value == nil and "" or tostring(obj.Value)
-    end
-
-    handle.GetValue = function()
-        return obj.Value
-    end
-
-    handle.SetStage = handle.SetValue
-    handle.GetNewList = handle.SetValues
-
-    handle.SetSubValue = function(first, second, third)
-        local keyName, value
-        if first == handle then
-            keyName, value = second, third
-        else
-            keyName, value = first, second
-        end
-        if control and type(control.SetSubValue) == "function" then
-            pcall(control.SetSubValue, control, keyName, value)
-        end
-    end
-
-    return handle
-end
-
-local function makeCompatTab(tab)
-    local out = {}
-
-    local function createElement(methodName, config)
-        local method = tab and tab[methodName]
-        if type(method) ~= "function" then
-            warn("[W-azure v3] WindUI element not available: " .. tostring(methodName))
-            return nil
-        end
-        local ok, element = pcall(method, tab, config)
-        if not ok then
-            warn("[W-azure v3] Failed to create " .. tostring(methodName) .. ": " .. tostring(element))
-            return nil
-        end
-        return element
-    end
-
-    -- A API nova nao precisa de Section: usamos Paragraph como divisor/titulo.
-    function out:AddSection(title)
-        createElement("Paragraph", { Title = tostring(title), Desc = "" })
-        return out
-    end
-
-    function out:AddToggle(key, cfg)
-        cfg = cfg or {}
-        local value = cfg.Default == true
-        local control = createElement("Toggle", {
-            Title = cfg.Title or key,
-            Desc = cfg.Description,
-            Value = value,
-            Callback = function(v)
-                optionObject(key, v).Value = v
-                safeCallback(cfg.Callback, v)
-            end,
-        })
-        return wrapControl(control, key, value)
-    end
-
-    function out:AddDropdown(key, cfg)
-        cfg = cfg or {}
-        local values = cfg.Values or {}
-        local multi = cfg.Multi == true
-        local initial = cfg.Default
-        if not multi and initial == nil then initial = values[1] end
-        local control = createElement("Dropdown", {
-            Title = cfg.Title or key,
-            Desc = cfg.Description,
-            Values = values,
-            Value = initial,
-            Multi = multi,
-            AllowNone = multi,
-            Callback = function(v)
-                optionObject(key, v).Value = v
-                safeCallback(cfg.Callback, v)
-            end,
-        })
-        return wrapControl(control, key, initial)
-    end
-
-    function out:AddSlider(key, cfg)
-        cfg = cfg or {}
-        local minimum = tonumber(cfg.Min) or 0
-        local maximum = tonumber(cfg.Max) or 100
-        local default = tonumber(cfg.Default) or minimum
-        local step = cfg.Rounding and cfg.Rounding > 0 and (1 / (10 ^ cfg.Rounding)) or 1
-        local control = createElement("Slider", {
-            Title = cfg.Title or key,
-            Desc = cfg.Description,
-            Step = step,
-            Value = { Min = minimum, Max = maximum, Default = default },
-            Callback = function(v)
-                optionObject(key, v).Value = v
-                safeCallback(cfg.Callback, v)
-            end,
-        })
-        return wrapControl(control, key, default)
-    end
-
-    function out:AddButton(cfg)
-        cfg = cfg or {}
-        local control = createElement("Button", {
-            Title = cfg.Title or "Button",
-            Desc = cfg.Description,
-            Locked = false,
-            Callback = function() safeCallback(cfg.Callback) end,
-        })
-        return wrapControl(control, "Button_" .. tostring(cfg.Title), false)
-    end
-
-    function out:AddParagraph(cfg)
-        cfg = cfg or {}
-        local control = createElement("Paragraph", {
-            Title = cfg.Title or " ",
-            Desc = cfg.Content or "",
-        })
-        return wrapControl(control, "Paragraph_" .. tostring(cfg.Title), cfg.Content or "")
-    end
-
-    function out:AddBox(key, cfg)
-        cfg = cfg or {}
-        local default = cfg.Default == nil and "" or tostring(cfg.Default)
-        local control = createElement("Input", {
-            Title = cfg.Title or key,
-            Desc = cfg.Description,
-            Value = default,
-            Placeholder = cfg.Placeholder or "Type here",
-            Type = "Input",
-            Callback = function(value)
-                optionObject(key, value).Value = value
-                safeCallback(cfg.Callback, value)
-            end,
-        })
-        return wrapControl(control, key, default)
-    end
-
-    function out:AddBind(key, cfg)
-        cfg = cfg or {}
-        local bindValue = cfg.Key or cfg.Value or "RightShift"
-        local control = createElement("Keybind", {
-            Title = cfg.Title or key,
-            Desc = cfg.Description,
-            Value = bindValue,
-            Callback = function(value) safeCallback(cfg.Callback, value) end,
-        })
-        return wrapControl(control, key, bindValue)
-    end
-
-    return out
-end
-
-local CompatTabs = {
-    Main = makeCompatTab(Tabs.Main),
-    Missions = makeCompatTab(Tabs.Missions),
-    Config = makeCompatTab(Tabs.Config),
-    Volcano = makeCompatTab(Tabs.Volcano),
-    SeaEvent = makeCompatTab(Tabs.SeaEvent),
-}
-
-local Fluent = {
-    Options = WindOptions,
-    Notify = function(_, cfg)
-        cfg = cfg or {}
-        pcall(function()
-            WindUI:Notify({
-                Title = cfg.Title or HUB_NAME,
-                Content = cfg.Content or "",
-                Icon = OPEN_IMAGE,
-                Duration = cfg.Duration or 5,
-            })
-        end)
-    end,
-}
-
-local function BananaDummy()
-    local obj = { Value = nil }
-    local function valueOf(first, second)
-        if first == obj then return second end
-        return first
-    end
-    obj.SetStage = function(first, second) obj.Value = valueOf(first, second) end
-    obj.SetText = function(first, second) obj.Value = valueOf(first, second) end
-    obj.GetNewList = function(first, second) obj.Value = valueOf(first, second) end
-    obj.SetValue = function(first, second) obj.Value = valueOf(first, second) end
-    obj.SetValues = function(first, second) obj.Value = valueOf(first, second) end
-    obj.GetText = function() return obj.Value == nil and "" or tostring(obj.Value) end
-    obj.GetValue = function() return obj.Value end
-    obj.SetTitle = obj.SetText
-    obj.SetDesc = obj.SetText
-    return obj
-end
-
-local BananaPageTabs = {
-    -- MAIN: loja, status, jogador e ferramentas visuais
-    ["Shop"] = CompatTabs.Main,
-    ["Status And Server"] = CompatTabs.Main,
-    ["LocalPlayer"] = CompatTabs.Main,
-    ["ESP"] = CompatTabs.Main,
-    ["PVP"] = CompatTabs.Main,
-
-    -- MISSIONS: farms, raids, progresso e itens
-    ["Farming"] = CompatTabs.Missions,
-    ["Stack Farming"] = CompatTabs.Missions,
-    ["Farming Other"] = CompatTabs.Missions,
-    ["Fruit and Raid, Dungeon"] = CompatTabs.Missions,
-    ["Upgrade Race"] = CompatTabs.Missions,
-    ["Get and Upgrade Items"] = CompatTabs.Missions,
-
-    -- CONFIG: configurações, skills e webhook
-    ["Setting Farm"] = CompatTabs.Config,
-    ["Hold and Select Skill"] = CompatTabs.Config,
-    ["Tab Webhook"] = CompatTabs.Config,
-    ["Setting"] = CompatTabs.Config,
-
-    -- EVENTOS em abas próprias
-    ["Volcano Event"] = CompatTabs.Volcano,
-    ["Sea Event"] = CompatTabs.SeaEvent,
-}
-
-local BananaControlId = 0
-local function BananaOptionKey(pageName, sectionName, title)
-    BananaControlId += 1
-    local raw = table.concat({tostring(pageName or "Page"), tostring(sectionName or "Section"), tostring(title or "Control"), tostring(BananaControlId)}, "_")
-    return raw:gsub("[^%w_]", "_")
-end
-
-local function BananaListValues(list)
-    local values = {}
-    if type(list) ~= "table" then return values end
-    if #list > 0 then
-        for _, value in ipairs(list) do
-            if type(value) == "string" or type(value) == "number" then
-                table.insert(values, tostring(value))
-            elseif type(value) == "table" and value.Title then
-                table.insert(values, tostring(value.Title))
-            end
-        end
-    else
-        for key, value in pairs(list) do
-            if type(key) == "string" and type(value) == "boolean" then table.insert(values, key) end
-        end
-        table.sort(values)
-    end
-    return values
-end
-
-local function BananaSelectedMap(value, allValues)
-    local selected = {}
-    if type(value) ~= "table" then return selected end
-    for key, state in pairs(value) do
-        if type(key) == "string" and type(state) == "boolean" then
-            selected[key] = state
-        elseif type(state) == "string" or type(state) == "number" then
-            selected[tostring(state)] = true
-        end
-    end
-    if #value > 0 then for _, item in ipairs(value) do selected[tostring(item)] = true end end
-    for _, item in ipairs(allValues or {}) do selected[item] = selected[item] == true end
-    return selected
-end
-
-local function BananaDefaultMulti(value, allValues)
-    local map = BananaSelectedMap(value, allValues)
-    local result = {}
-    for _, item in ipairs(allValues or {}) do if map[item] then table.insert(result, item) end end
-    return result
-end
-
-local function BananaHandle(control, optionKey)
-    return control or BananaDummy()
-end
-
-local function BananaMakeControl(tab, pageName, sectionName, kind, config, callback)
-    if not tab then return BananaDummy() end
-    config = type(config) == "table" and config or {}
-    local title = config.Title or kind
-    local key = BananaOptionKey(pageName, sectionName, title)
-
-    if kind == "Toggle" then
-        return tab:AddToggle(key, {
-            Title = tostring(title),
-            Description = tostring(config.Desc or config.Description or ""),
-            Default = config.Default == true,
-            Callback = function(v)
-                if callback then callback(v == true) end
-            end,
-        })
-    elseif kind == "Dropdown" then
-        local values = BananaListValues(config.List or config.Values)
-        local multi = config.Selected == true
-        local defaultValue = config.Default
-        if multi then
-            defaultValue = BananaDefaultMulti(defaultValue, values)
-        elseif type(defaultValue) == "table" then
-            defaultValue = defaultValue[1]
-        end
-        return tab:AddDropdown(key, {
-            Title = tostring(title),
-            Values = values,
-            Multi = multi,
-            Default = defaultValue,
-            Callback = function(v)
-                if multi then
-                    local current = BananaSelectedMap(v, values)
-                    if callback then
-                        for _, item in ipairs(values) do
-                            callback(item, current[item] == true)
-                        end
-                    end
-                elseif callback then
-                    callback(v)
-                end
-            end,
-        })
-    elseif kind == "Slider" then
-        return tab:AddSlider(key, {
-            Title = tostring(title),
-            Min = tonumber(config.Min) or 0,
-            Max = tonumber(config.Max) or 100,
-            Default = tonumber(config.Default) or 0,
-            Rounding = config.Precise and 2 or 0,
-            Callback = callback,
-        })
-    elseif kind == "Button" then
-        return tab:AddButton({
-            Title = tostring(title),
-            Description = tostring(config.Desc or config.Description or ""),
-            Callback = callback,
-        })
-    elseif kind == "Label" then
-        return tab:AddParagraph({
-            Title = tostring(title),
-            Content = tostring(config.Content or config.Desc or ""),
-        })
-    elseif kind == "Box" then
-        return tab:AddBox(key, {
-            Title = tostring(title),
-            Description = tostring(config.Desc or config.Description or ""),
-            Placeholder = tostring(config.Placeholder or "Type here"),
-            Default = config.Default,
-            Number = config.Number == true,
-            Callback = callback,
-        })
-    elseif kind == "Bind" then
-        return tab:AddBind(key, {
-            Title = tostring(title),
-            Key = config.Key or config.Default or "RightShift",
-            Callback = callback,
-        })
-    end
-    return BananaDummy()
-end
-
-local function BananaMakeSection(tab, pageName, sectionName)
-    if not tab then return setmetatable({}, {__index=function() return function() return BananaDummy() end end}) end
-    local section = tab:AddSection(tostring(sectionName))
-    local out = {}
-    for _, kind in ipairs({"Toggle","Dropdown","Slider","Button","Label","Box","Bind"}) do
-        out["Create"..kind] = function(config, callback) return BananaMakeControl(tab, pageName, sectionName, kind, config, callback) end
-    end
-    return out
-end
-
-local function CreateBananaFluentBridge()
-    local bridge = { Options = WindOptions }
-    bridge.CreateNoti = function(config)
-        config = type(config) == "table" and config or {}
-        pcall(function()
-            WindUI:Notify({Title=tostring(config.Title or HUB_NAME), Content=tostring(config.Desc or ""), Icon=OPEN_IMAGE, Duration=tonumber(config.ShowTime) or 5})
-        end)
-        return BananaDummy()
-    end
-    bridge.CreateMain = function()
-        local main = {}
-        main.CreatePage = function(pageConfig)
-            pageConfig = type(pageConfig) == "table" and pageConfig or {}
-            local pageName = tostring(pageConfig.Page_Name or "Page")
-            local tab = BananaPageTabs[pageName]
-            if not tab then
-                warn("[W-azure v3] Page without a tab mapping: " .. pageName .. " (using Missions as fallback)")
-                tab = CompatTabs.Missions
-            end
-            return {CreateSection=function(sectionName) return BananaMakeSection(tab, pageName, sectionName) end}
-        end
-        return main
-    end
-    return bridge
-end
-
+local Options = Fluent.Options
 
 ----------------------------------------------------------------
 -- Services / references
@@ -1053,21 +545,19 @@ end
 
 -- TAB MISSIONS
 ----------------------------------------------------------------
-Tabs.Missions:Paragraph({
+Tabs.Missions:AddParagraph({
 	Title = "Auto Elite Boss",
-	Desc = "Farms the elite bosses (Diablo, Deandre, Urban) and picks up the Elite Hunter quest when needed.",
+	Content = "Farms the elite bosses (Diablo, Deandre, Urban) and picks up the Elite Hunter quest when needed.",
 })
 
-local tgElite = Tabs.Missions:Toggle({
+local tgElite = Tabs.Missions:AddToggle("AutoEliteBoss", {
 	Title = "Auto Elite Boss",
-	Desc = "Farms elite bosses automatically",
-	Value = false,
-	Callback = function(state)
-		Options.AutoEliteBoss = Options.AutoEliteBoss or { Value = false }
-		Options.AutoEliteBoss.Value = state
-		if not state then StopTween() end
-	end,
+	Description = "Farms elite bosses automatically",
+	Default = false,
 })
+tgElite:OnChanged(function()
+	if not tgElite.Value then StopTween() end
+end)
 
 CreateLoop("AutoEliteBoss", function()
 	if not IsAlive(LP.Character) then return end
@@ -1090,9 +580,9 @@ CreateLoop("AutoEliteBoss", function()
 	end
 end, 0.5)
 
-Tabs.Missions:Paragraph({
+Tabs.Missions:AddParagraph({
 	Title = "Auto Yama",
-	Desc = "Farms elite bosses until Elite Hunter progress reaches 30, then fetches Yama at the Waterfall.",
+	Content = "Farms elite bosses until Elite Hunter progress reaches 30, then fetches Yama at the Waterfall.",
 })
 
 local function FindYamaKatana()
@@ -1103,16 +593,14 @@ local function FindYamaKatana()
 	return waterfall:FindFirstChild("SealedKatana")
 end
 
-local tgYama = Tabs.Missions:Toggle({
+local tgYama = Tabs.Missions:AddToggle("AutoYama", {
 	Title = "Auto Yama",
-	Desc = "Fetches Yama once Elite Hunter progress is 30",
-	Value = false,
-	Callback = function(state)
-		Options.AutoYama = Options.AutoYama or { Value = false }
-		Options.AutoYama.Value = state
-		if not state then StopTween() end
-	end,
+	Description = "Fetches Yama once Elite Hunter progress is 30",
+	Default = false,
 })
+tgYama:OnChanged(function()
+	if not tgYama.Value then StopTween() end
+end)
 
 CreateLoop("AutoYama", function()
 	if not IsAlive(LP.Character) then return end
@@ -1156,7 +644,312 @@ end, 0.5)
 
 
 
-do -- Banana Cat Hub backend adapted to WindUI
+----------------------------------------------------------------
+-- BANANA CAT HUB -> FLUENT BRIDGE
+-- Only these Banana pages are displayed in Fluent:
+-- Farming -> Main, Setting Farm -> Config,
+-- Volcano Event -> Volcano, Sea Event -> Sea Event.
+-- Remaining Banana pages get safe dummy controls so their
+-- internal references do not stop the selected modules.
+----------------------------------------------------------------
+local BananaPageTabs = {
+    ["Farming"] = Tabs.Main,
+    ["Setting Farm"] = Tabs.Config,
+    ["Volcano Event"] = Tabs.Volcano,
+    ["Sea Event"] = Tabs.SeaEvent,
+}
+
+local function BananaDummy()
+    local obj = {}
+    local function valueArg(a, b)
+        if b ~= nil then return b end
+        return a
+    end
+    obj.SetStage = function(a, b) obj._value = valueArg(a, b) end
+    obj.SetText = function(a, b) obj._text = valueArg(a, b) end
+    obj.GetNewList = function(a, b) obj._list = valueArg(a, b) end
+    obj.SetValue = function(a, b) obj._value = valueArg(a, b) end
+    return setmetatable(obj, {
+        __index = function(self, k)
+            if k == "Value" then return rawget(self, "_value") end
+            return function() return self end
+        end,
+        __newindex = function(self, k, v) rawset(self, k, v) end,
+    })
+end
+
+local BananaControlId = 0
+
+local function BananaOptionKey(pageName, sectionName, title)
+    BananaControlId += 1
+    local raw = table.concat({
+        tostring(pageName or "Page"),
+        tostring(sectionName or "Section"),
+        tostring(title or "Control"),
+        tostring(BananaControlId),
+    }, "_")
+    return raw:gsub("[^%w_]", "_")
+end
+
+local function BananaListValues(list)
+    local values = {}
+    if type(list) ~= "table" then return values end
+
+    if #list > 0 then
+        for _, value in ipairs(list) do
+            if type(value) == "string" or type(value) == "number" then
+                table.insert(values, tostring(value))
+            elseif type(value) == "table" and value.Title then
+                table.insert(values, tostring(value.Title))
+            end
+        end
+    else
+        for key, value in pairs(list) do
+            if type(key) == "string" and type(value) == "boolean" then
+                table.insert(values, key)
+            end
+        end
+        table.sort(values)
+    end
+    return values
+end
+
+local function BananaSelectedMap(value, allValues)
+    local selected = {}
+    if type(value) ~= "table" then return selected end
+
+    for key, state in pairs(value) do
+        if type(key) == "string" and type(state) == "boolean" then
+            selected[key] = state
+        elseif type(state) == "string" or type(state) == "number" then
+            selected[tostring(state)] = true
+        end
+    end
+
+    if #value > 0 then
+        for _, item in ipairs(value) do
+            selected[tostring(item)] = true
+        end
+    end
+
+    for _, item in ipairs(allValues or {}) do
+        selected[item] = selected[item] == true
+    end
+    return selected
+end
+
+local function BananaDefaultMulti(value, allValues)
+    local map = BananaSelectedMap(value, allValues)
+    local result = {}
+    for _, item in ipairs(allValues or {}) do
+        if map[item] then table.insert(result, item) end
+    end
+    return result
+end
+
+local function BananaHandle(control, optionKey, kind)
+    local handle = {}
+
+    local function setControlValue(value)
+        if not control then return end
+        pcall(function()
+            if type(control.SetValue) == "function" then
+                control:SetValue(value)
+            elseif type(control.SetStage) == "function" then
+                control:SetStage(value)
+            end
+        end)
+    end
+
+    handle.SetStage = function(a, b)
+        setControlValue(b ~= nil and b or a)
+    end
+    handle.SetValue = function(a, b)
+        setControlValue(b ~= nil and b or a)
+    end
+    handle.SetText = function(a, b)
+        local value = tostring(b ~= nil and b or a)
+        pcall(function()
+            if control and type(control.SetDesc) == "function" then
+                control:SetDesc(value)
+            elseif control and type(control.SetTitle) == "function" then
+                control:SetTitle(value)
+            end
+        end)
+    end
+    handle.GetNewList = function(a, b)
+        local values = b ~= nil and b or a
+        pcall(function()
+            if control and type(control.SetValues) == "function" then
+                control:SetValues(values)
+            end
+        end)
+    end
+
+    return setmetatable(handle, {
+        __index = function(_, key)
+            if key == "Value" then
+                local option = Fluent.Options[optionKey]
+                return option and option.Value
+            end
+            if control then
+                local ok, value = pcall(function() return control[key] end)
+                if ok then return value end
+            end
+            return nil
+        end,
+    })
+end
+
+local function BananaMakeControl(tab, pageName, sectionName, kind, config, callback)
+    if not tab then return BananaDummy() end
+    config = type(config) == "table" and config or {}
+    local title = config.Title or kind
+    local key = BananaOptionKey(pageName, sectionName, title)
+    local control
+
+    if kind == "Toggle" then
+        control = tab:AddToggle(key, {
+            Title = tostring(title),
+            Description = tostring(config.Desc or config.Description or ""),
+            Default = config.Default == true,
+        })
+        if callback and control and type(control.OnChanged) == "function" then
+            control:OnChanged(function(value)
+                callback(value == true)
+            end)
+        end
+
+    elseif kind == "Dropdown" then
+        local values = BananaListValues(config.List or config.Values)
+        local multi = config.Selected == true
+        local defaultValue = config.Default
+        if multi then
+            defaultValue = BananaDefaultMulti(defaultValue, values)
+        elseif type(defaultValue) == "table" then
+            defaultValue = defaultValue[1]
+        end
+
+        control = tab:AddDropdown(key, {
+            Title = tostring(title),
+            Values = values,
+            Multi = multi,
+            Default = defaultValue,
+        })
+
+        if callback and control and type(control.OnChanged) == "function" then
+            if multi then
+                local previous = BananaSelectedMap(defaultValue, values)
+                control:OnChanged(function(newValue)
+                    local current = BananaSelectedMap(newValue, values)
+                    for _, item in ipairs(values) do
+                        if previous[item] ~= current[item] then
+                            callback(item, current[item] == true)
+                        end
+                    end
+                    previous = current
+                end)
+            else
+                control:OnChanged(function(value)
+                    callback(value)
+                end)
+            end
+        end
+
+    elseif kind == "Slider" then
+        control = tab:AddSlider(key, {
+            Title = tostring(title),
+            Min = tonumber(config.Min) or 0,
+            Max = tonumber(config.Max) or 100,
+            Default = tonumber(config.Default) or 0,
+            Rounding = config.Precise and 2 or 0,
+        })
+        if callback and control and type(control.OnChanged) == "function" then
+            control:OnChanged(function(value)
+                callback(value)
+            end)
+        end
+
+    elseif kind == "Button" then
+        control = tab:AddButton({
+            Title = tostring(title),
+            Description = tostring(config.Desc or config.Description or ""),
+            Callback = function()
+                if callback then callback() end
+            end,
+        })
+
+    elseif kind == "Label" then
+        control = tab:AddParagraph({
+            Title = tostring(title),
+            Content = tostring(config.Content or config.Desc or ""),
+        })
+
+    else
+        return BananaDummy()
+    end
+
+    return BananaHandle(control, key, kind)
+end
+
+local function BananaMakeSection(tab, pageName, sectionName)
+    if not tab then
+        return setmetatable({}, {
+            __index = function()
+                return function() return BananaDummy() end
+            end,
+        })
+    end
+
+    pcall(function()
+        if type(tab.AddSection) == "function" then
+            tab:AddSection(tostring(sectionName))
+        end
+    end)
+
+    local section = {}
+    for _, kind in ipairs({ "Toggle", "Dropdown", "Slider", "Button", "Label", "Box", "Bind" }) do
+        section["Create" .. kind] = function(config, callback)
+            return BananaMakeControl(tab, pageName, sectionName, kind, config, callback)
+        end
+    end
+    return section
+end
+
+local function CreateBananaFluentBridge()
+    local bridge = { Options = Fluent.Options }
+
+    bridge.CreateNoti = function(config)
+        config = type(config) == "table" and config or {}
+        pcall(function()
+            Fluent:Notify({
+                Title = tostring(config.Title or "W-AZURE V3"),
+                Content = tostring(config.Desc or ""),
+                Duration = tonumber(config.ShowTime) or 5,
+            })
+        end)
+        return BananaDummy()
+    end
+
+    bridge.CreateMain = function()
+        local main = {}
+        main.CreatePage = function(pageConfig)
+            pageConfig = type(pageConfig) == "table" and pageConfig or {}
+            local pageName = tostring(pageConfig.Page_Name or "Page")
+            local tab = BananaPageTabs[pageName]
+            local page = {}
+            page.CreateSection = function(sectionName)
+                return BananaMakeSection(tab, pageName, sectionName)
+            end
+            return page
+        end
+        return main
+    end
+
+    return bridge
+end
+
+do -- Banana Cat Hub backend adapted to Fluent
 
 
 
@@ -1516,6 +1309,9 @@ getgenv().ExploitReq = (syn and syn.request)
 	or request
 	or requests
 getgenv().request = getgenv().request or getgenv().ExploitReq
+if type(getgenv().ExploitReq) ~= "function" then
+    warn("[W-AZURE] Executor sem request/syn.request: recursos de consulta e busca de servidores podem falhar.")
+end
 getgenv().CheckPlaceId = game.PlaceId == 100117331123089 and 100117331123089 or 7449423635
 getgenv().CheckPlaceId2 = game.PlaceId == 4442272183 and 4442272183 or 79091703265657
 getgenv().CheckPlaceId3 = game.PlaceId == 2753915549 and 2753915549 or 85211729168715
@@ -3272,19 +3068,48 @@ SectionServer.CreateBox(
 SectionServer.CreateToggle({ Title = "Spam Join", Desc = nil, Default = Settings["Spam Join"] or false }, function(f)
 	SaveSettings("Spam Join", f)
 end)
-if not (bit32 or bit) then
-	({}).bxor = function(f, K)
-		local R, m = 0, 1
-		while f > 0 or K > 0 do
-			local E, l = f % 2, K % 2
-			f, K, R, m = (f - E) / 2, (K - l) / 2, if E ~= l then R + m else R, m * 2
-		end
-		return R
-	end
+-- bit32.bxor e usado pelo codec interno. O fallback anterior criava
+-- bxor numa tabela temporaria e nao disponibilizava a funcao para o restante.
+if not bit32 then
+    local bitLibrary = bit
+    if bitLibrary and type(bitLibrary.bxor) == "function" then
+        bit32 = { bxor = function(a, b) return bitLibrary.bxor(a, b) end }
+    else
+        bit32 = {
+            bxor = function(a, b)
+                local result, place = 0, 1
+                a, b = math.floor(tonumber(a) or 0), math.floor(tonumber(b) or 0)
+                while a > 0 or b > 0 do
+                    local abit, bbit = a % 2, b % 2
+                    if abit ~= bbit then result = result + place end
+                    a, b, place = math.floor(a / 2), math.floor(b / 2), place * 2
+                end
+                return result
+            end,
+        }
+    end
 end
-local f = loadstring(
+local _keyCodecChunk = SafeLoadstring(
 	'local function EQ(a, r)\10 local b, c = nil, nil\10 local success = pcall(function()\10 b, c = a, r\10 end)\10\10 if not success or b == nil or c == nil then\10 return false\10 end\10\10 if type(b) ~= type(c) then\10 return false\10 end\10\10 local d = { c, b, c, b }\10 if d[1] ~= d[1] then\10 return false\10 end\10 if d[1] ~= d[2] then\10 return false\10 end\10 if d[2] ~= d[1] then\10 return false\10 end\10\10 local e, f, g = 1 and 2, 2 and nil, true == not not true\10\10 if type(b) == "number" and type(c) == "number" then\10 if e and g and not f then\10 return b == c\10 end\10 elseif type(b) == "string" and type(c) == "string" then\10 if e and g then\10 return b == c\10 end\10 else\10 return b == c\10 end\10\10 return false\10end\10\10local function _vrf()\10 local x = os.time and os.time() or 12345\10 if tostring(print):find("function") == nil then\10 while true do\10 end\10 end\10 if tostring(type):find("function") == nil then\10 while true do\10 end\10 end\10 if (x * x + x) % 2 ~= 0 then\10 while true do\10 end\10 end\10 if not EQ(x, x) then\10 while true do\10 end\10 end\10end\10\10local function _gct()\10 _vrf()\10 local s, p1, p2, p3 = 17, {}, {}, {}\10 local _m = { [17] = 23, [23] = 41, [41] = 999 }\10\10 while true do\10 if s == 17 then\10 for i = 0, 255 do\10 local c = ("%c"):format(i)\10 p1[i] = c\10 p2[c] = i\10 end\10 s = _m[17]\10 elseif s == 23 then\10 for i = 0, 255 do\10 p3[i] = p1[i]\10 end\10 s = _m[23]\10 elseif s == 41 then\10 if EQ(s, 41) then\10 return p3, p2\10 else\10 while true do\10 end\10 end\10 else\10 while true do\10 end\10 end\10 end\10end\10\10local _CT, _BT = _gct()\10\10local _sp = (function()\10 local _xk = { 0x61, 0x9A, 0x43, 0xF1, 0x27, 0xBC, 0x58, 0x0D, 0xE7, 0x33 }\10\10 local _enc = {\10 { 0x9A, 0x71, 0x24, 0xEF, 0x38, 0x4C },\10 { 0x7D, 0xA1, 0x55, 0x92, 0xB7, 0x44, 0x18 },\10 { 0x2F, 0xC3, 0x89, 0x11, 0xD4, 0x67 },\10 { 0xA8, 0x3E, 0xD1, 0x5B },\10 { 0x44, 0xE2, 0x71, 0x9C, 0x0A, 0xD8, 0x61, 0xF4 },\10 { 0x1E, 0x7B, 0xC0, 0x35, 0x92, 0xAF, 0x4D, 0x28 },\10 { 0xF3, 0x60, 0x1A, 0x87, 0xCE, 0x39, 0x54 },\10 { 0x88, 0x2D, 0xB6, 0x41, 0xFA, 0x73, 0x19, 0xCC, 0x05 },\10 }\10\10 local function _dec(data, seed)\10 local result = ""\10 local state = seed or 0x53\10\10 for i = 1, #data do\10 local byte = data[i]\10 local keyIdx = ((i - 1) % #_xk) + 1\10 local key = _xk[keyIdx]\10\10 byte = bit32.bxor(byte, key)\10 byte = (byte - state + 256) % 256\10 byte = bit32.bxor(byte, (i * 23) % 256)\10 state = (state + i + key + 17) % 256\10\10 result = result .. _CT[byte]\10 end\10\10 return result\10 end\10\10 local _d = {}\10 for i = 1, #_enc do\10 _d[i] = _dec(_enc[i], (i * 0x29) % 256)\10 end\10\10 return _d\10end)()\10\10local function _gb(str, pos)\10 _vrf()\10 local c, s = 0, 5\10 local _states = { [5] = 7, [7] = 11, [11] = 999 }\10\10 while true do\10 if s == 5 then\10 for ch in str:gmatch(".") do\10 c = c + 1\10 if c == pos then\10 s = _states[5]\10 break\10 end\10 end\10 if s ~= 7 then\10 s = _states[11]\10 end\10 elseif s == 7 then\10 local ch = ""\10 local cnt = 0\10 for c2 in str:gmatch(".") do\10 cnt = cnt + 1\10 if cnt == pos then\10 ch = c2\10 break\10 end\10 end\10 if EQ(_BT[ch] or 0, _BT[ch] or 0) then\10 return _BT[ch] or 0\10 end\10 elseif s == 11 then\10 return 0\10 end\10 end\10end\10\10local function _tc(num)\10 if EQ(num, num) then\10 return _CT[num % 256]\10 end\10 while true do\10 end\10end\10\10local function _js(tbl)\10 local r, s = "", 3\10 local _sm = { [3] = 8, [8] = 999 }\10\10 while true do\10 if s == 3 then\10 for i = 1, #tbl do\10 r = r .. tbl[i]\10 end\10 s = _sm[3]\10 elseif s == 8 then\10 if EQ(r, r) then\10 return r\10 end\10 end\10 end\10end\10\10local function _gl(str)\10 _vrf()\10 local c = 0\10 for _ in str:gmatch(".") do\10 c = c + 1\10 end\10 if EQ(c, c) then\10 return c\10 end\10 return 0\10end\10\10local function _rp(str, pat, rep)\10 _vrf()\10 local r, pl, m = "", _gl(pat), true\10\10 for i = 1, pl do\10 if _gb(str, i) ~= _gb(pat, i) then\10 m = false\10 break\10 end\10 end\10\10 if m and EQ(m, true) then\10 r = rep\10 for i = pl + 1, _gl(str) do\10 local ch = ""\10 local cnt = 0\10 for c in str:gmatch(".") do\10 cnt = cnt + 1\10 if cnt == i then\10 ch = c\10 break\10 end\10 end\10 r = r .. ch\10 end\10 return r\10 end\10\10 return str\10end\10\10local function _cs(...)\10 local args, r = { ... }, ""\10 for i = 1, #args do\10 r = r .. args[i]\10 end\10 if EQ(r, r) then\10 return r\10 end\10 return ""\10end\10\10local function _gks(key, len)\10 _vrf()\10 local ks, kl, st = {}, _gl(key), 0\10\10 for i = 1, len do\10 local kp = ((i - 1) % kl) + 1\10 local kb = _gb(key, kp)\10 st = (st + kb + i + ((i * 11) % 256)) % 256\10 ks[i] = (kb + st + (i * 17) + ((kb * 3) % 256)) % 256\10 end\10\10 if EQ(#ks, len) then\10 return ks\10 end\10 return {}\10end\10\10local function _mix_key_material(key, salt)\10 _vrf()\10 local rev = key:reverse()\10 local out = {}\10 local src = _cs(key, salt, rev, _tc(_gl(key) % 256), _tc(_gl(salt) % 256))\10\10 for i = 1, _gl(src) do\10 local b = _gb(src, i)\10 b = bit32.bxor(b, (i * 29) % 256)\10 b = (b + ((i * 7) % 256)) % 256\10 out[i] = _tc(b)\10 end\10\10 return _js(out)\10end\10\10local function _derive_stream(key, salt, len)\10 _vrf()\10 local km = _mix_key_material(key, salt)\10 return _gks(km, len)\10end\10\10local function _randb()\10 return math.random(0, 255)\10end\10\10local function _gensalt128()\10 _vrf()\10 local t = {}\10 for i = 1, 16 do\10 t[i] = _tc(_randb())\10 end\10 return _js(t)\10end\10\10local function _secure_round_enc(key, data, salt, round_idx)\10 _vrf()\10 local dl = _gl(data)\10 local ks = _derive_stream(_cs(key, _tc(48 + round_idx)), salt, dl)\10 local r = {}\10 local st = (_gl(key) + _gl(salt) + round_idx * 37 + 91) % 256\10\10 for i = 1, dl do\10 local db = _gb(data, i)\10 local sb = _gb(salt, ((i + round_idx - 2) % 16) + 1)\10 local kk = ks[i]\10\10 st = (st + kk + sb + i + round_idx) % 256\10\10 local enc = db\10 enc = bit32.bxor(enc, kk)\10 enc = (enc + st + sb) % 256\10 enc = bit32.bxor(enc, ((i * 31) + sb + round_idx * 9) % 256)\10 enc = (enc + ((kk * 5) % 256)) % 256\10\10 r[i] = _tc(enc)\10 end\10\10 return _js(r)\10end\10\10local function _secure_round_dec(key, data, salt, round_idx)\10 _vrf()\10 local dl = _gl(data)\10 local ks = _derive_stream(_cs(key, _tc(48 + round_idx)), salt, dl)\10 local r = {}\10 local st = (_gl(key) + _gl(salt) + round_idx * 37 + 91) % 256\10\10 for i = 1, dl do\10 local sb = _gb(salt, ((i + round_idx - 2) % 16) + 1)\10 local kk = ks[i]\10\10 st = (st + kk + sb + i + round_idx) % 256\10\10 local eb = _gb(data, i)\10\10 local db = eb\10 db = (db - ((kk * 5) % 256) + 256) % 256\10 db = bit32.bxor(db, ((i * 31) + sb + round_idx * 9) % 256)\10 db = (db - st - sb + 512) % 256\10 db = bit32.bxor(db, kk)\10\10 r[i] = _tc(db)\10 end\10\10 return _js(r)\10end\10\10local function _ae(key, data, salt, rnd)\10 _vrf()\10 rnd = rnd or 3\10 local r = data\10\10 for rd = 1, rnd do\10 r = _secure_round_enc(key, r, salt, rd)\10 if not EQ(r, r) then\10 while true do\10 end\10 end\10 end\10\10 return r\10end\10\10local function _ad(key, data, salt, rnd)\10 _vrf()\10 rnd = rnd or 3\10 local r = data\10\10 for rd = rnd, 1, -1 do\10 r = _secure_round_dec(key, r, salt, rd)\10 if not EQ(r, r) then\10 while true do\10 end\10 end\10 end\10\10 return r\10end\10\10local _b64 = (function()\10 local chs = string.char(\10 65,\10 66,\10 67,\10 68,\10 69,\10 70,\10 71,\10 72,\10 73,\10 74,\10 75,\10 76,\10 77,\10 78,\10 79,\10 80,\10 81,\10 82,\10 83,\10 84,\10 85,\10 86,\10 87,\10 88,\10 89,\10 90,\10 97,\10 98,\10 99,\10 100,\10 101,\10 102,\10 103,\10 104,\10 105,\10 106,\10 107,\10 108,\10 109,\10 110,\10 111,\10 112,\10 113,\10 114,\10 115,\10 116,\10 117,\10 118,\10 119,\10 120,\10 121,\10 122,\10 48,\10 49,\10 50,\10 51,\10 52,\10 53,\10 54,\10 55,\10 56,\10 57,\10 43,\10 47\10 )\10\10 local function enc(data)\10 _vrf()\10 local r, dl = {}, _gl(data)\10 local i = 1\10\10 while i <= dl do\10 local b1 = _gb(data, i)\10 local b2 = i + 1 <= dl and _gb(data, i + 1) or 0\10 local b3 = i + 2 <= dl and _gb(data, i + 2) or 0\10\10 local n = b1 * 65536 + b2 * 256 + b3\10\10 local c1 = (n // 262144) % 64 + 1\10 local c2 = (n // 4096) % 64 + 1\10 local c3 = (n // 64) % 64 + 1\10 local c4 = n % 64 + 1\10\10 r[#r + 1] = _gb(chs, c1)\10 r[#r + 1] = _gb(chs, c2)\10 r[#r + 1] = i + 1 <= dl and _gb(chs, c3) or 61\10 r[#r + 1] = i + 2 <= dl and _gb(chs, c4) or 61\10\10 i = i + 3\10 end\10\10 local out = {}\10 for idx = 1, #r do\10 out[idx] = _tc(r[idx])\10 end\10\10 if EQ(_js(out), _js(out)) then\10 return _js(out)\10 end\10 return ""\10 end\10\10 local function dec(data)\10 _vrf()\10 local r, dl = {}, _gl(data)\10 local i = 1\10\10 while i <= dl do\10 local c1 = _gb(data, i)\10 local c2 = _gb(data, i + 1)\10 local c3 = _gb(data, i + 2)\10 local c4 = _gb(data, i + 3)\10\10 local function fp(byte)\10 if byte == 61 then\10 return 0\10 end\10 for p = 1, 64 do\10 if _gb(chs, p) == byte then\10 return p - 1\10 end\10 end\10 return 0\10 end\10\10 local n1, n2, n3, n4 = fp(c1), fp(c2), fp(c3), fp(c4)\10 local n = n1 * 262144 + n2 * 4096 + n3 * 64 + n4\10\10 r[#r + 1] = _tc((n // 65536) % 256)\10 if c3 ~= 61 then\10 r[#r + 1] = _tc((n // 256) % 256)\10 end\10 if c4 ~= 61 then\10 r[#r + 1] = _tc(n % 256)\10 end\10\10 i = i + 4\10 end\10\10 if EQ(_js(r), _js(r)) then\10 return _js(r)\10 end\10 return ""\10 end\10\10 return { encode = enc, decode = dec }\10end)()\10\10local function _seed_rng()\10 local seed = (os.time and os.time() or 12345)\10 + math.floor((os.clock and os.clock() or 0) * 100000)\10 + math.random(1, 999999)\10\10 math.randomseed(seed)\10 math.random()\10 math.random()\10 math.random()\10end\10\10_seed_rng()\10\10local function ebgzqifrwa(plaintext)\10 _vrf()\10 local k = _cs(_sp[5], _sp[6], _sp[7], _sp[8])\10 if not EQ(k, k) then\10 while true do\10 end\10 end\10\10 local salt = _gensalt128()\10 local enc = _ae(k, plaintext, salt, 3)\10 local payload = _cs(salt, enc)\10 local b64 = _b64.encode(payload)\10\10 if EQ(b64, b64) then\10 return _cs("BananaCat-", b64)\10 end\10 return ""\10end\10\10local function lebidlyjyf(encrypted)\10 _vrf()\10 local k = _cs(_sp[5], _sp[6], _sp[7], _sp[8])\10 if not EQ(k, k) then\10 while true do\10 end\10 end\10\10 local ed = _rp(encrypted, "BananaCat-", "")\10 local dc = _b64.decode(ed)\10\10 if _gl(dc) < 16 then\10 return ""\10 end\10\10 local salt_tbl = {}\10 local data_tbl = {}\10\10 for i = 1, 16 do\10 salt_tbl[#salt_tbl + 1] = _tc(_gb(dc, i))\10 end\10\10 for i = 17, _gl(dc) do\10 data_tbl[#data_tbl + 1] = _tc(_gb(dc, i))\10 end\10\10 local salt = _js(salt_tbl)\10 local data = _js(data_tbl)\10\10 if EQ(data, data) then\10 return _ad(k, data, salt, 3)\10 end\10 return ""\10end\10return ebgzqifrwa, lebidlyjyf\10'
 )
+local f
+if _keyCodecChunk then
+    local codecOk, encodeFn, decodeFn = pcall(_keyCodecChunk)
+    if codecOk and type(encodeFn) == "function" and type(decodeFn) == "function" then
+        f = function()
+            return encodeFn, decodeFn
+        end
+    else
+        warn("[W-AZURE] Codec de JobId nao iniciou corretamente: " .. tostring(encodeFn))
+    end
+end
+if not f then
+    warn("[W-AZURE] Codec especial de JobId desativado; use JobIds normais.")
+    f = function()
+        return function(value) return value end, function(value) return value end
+    end
+end
+
 Realm = require(game:GetService("ReplicatedStorage").Util.Realm)
 function tryTeleport(K, R, m)
 	local E, l = pcall(function()
@@ -22215,9 +22040,24 @@ a.CreateBind({ Title = "Toggle GUI", Key = Enum.KeyCode.LeftControl }, function(
 		end
 	end
 end)
+local _hookApisAvailable = type(loadstring) == "function"
+    and type(getrawmetatable) == "function"
+    and type(setreadonly) == "function"
+    and type(newcclosure) == "function"
+    and type(getnamecallmethod) == "function"
+
+if _hookApisAvailable then
+    local _hookOk, _hookErr = pcall(function()
 loadstring(
 	'local MT = getrawmetatable(game)\10local OldNameCall = MT.__namecall\10setreadonly(MT, false)\10MT.__namecall = newcclosure(function(self, ...)\10 local Method = getnamecallmethod()\10 local Args = { ... }\10 if\10 Method == "FireServer"\10 and self.Name == "RemoteEvent"\10 and AimPos\10 and tostring(AimPos.X) ~= "nan"\10 and (\10 Settings["Auto Event Prehistoric Island"]\10 or Settings["Kill players When complete Trial"]\10 or Settings["Auto Quest Dragon Hunter"]\10 or Settings["Auto Quest Dojo Trainer"]\10 or Settings["Farm Mastery"]\10 or Settings["Auto Attack Leviathan"]\10 or Settings["Auto Sea Event"]\10 or Settings["Auto Upgrade Race V2-V3"]\10 or Settings["Auto Trial"]\10 or Settings["Auto Aimbot"]\10 or Settings["Auto Shipwright"]\10 )\10 then\10 if #Args == 1 and typeof(Args[1]) == "Vector3" then\10 Args[1] = AimPos.Position\10 end\10 if #Args == 1 and typeof(Args[1]) == "CFrame" then\10 Args[1] = AimPos\10 end\10 end\10 return OldNameCall(self, unpack(Args))\10end)\10setreadonly(MT, true)\10'
 )()
+    end)
+    if not _hookOk then
+        warn("[W-AZURE] Hook opcional nao foi instalado: " .. tostring(_hookErr))
+    end
+else
+    warn("[W-AZURE] Hook opcional ignorado: o executor nao oferece todas as APIs necessarias.")
+end
 x = game:GetService("RunService")
 
 -- NOCLIP chay tren Stepped (truoc physics), doc lap voi phan con lai cua script
@@ -22369,15 +22209,10 @@ end -- Banana Cat Hub backend
 ----------------------------------------------------------------
 -- Final
 ----------------------------------------------------------------
-pcall(function()
-    if Window.SelectTab then Window:SelectTab(1) end
-end)
+Window:SelectTab(1)
 
-pcall(function()
-    WindUI:Notify({
-        Title = "W-azure v3",
-        Content = "Loaded successfully!",
-        Icon = OPEN_IMAGE,
-        Duration = 5,
-    })
-end)
+Fluent:Notify({
+	Title = "W-AZURE V3",
+	Content = "Loaded successfully! by jane doe sigma",
+	Duration = 5,
+})

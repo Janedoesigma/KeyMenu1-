@@ -6,7 +6,7 @@
 --// ============================================================
 
 local HUB_NAME = "W-azure v3"
-local OPEN_IMAGE = "rbxassetid://5009915795"
+local OPEN_IMAGE = "rbxassetid://347301795"
 local WindUI
 
 local function loadWindUI()

@@ -521,8 +521,8 @@ end
 function A.CreateMain(config)
     config = config or {}
     Window = Fluent:CreateWindow({
-        Title = "Banana Cat Hub",
-        SubTitle = "Blox Fruits | Fluent UI",
+        Title = "W-azure v3 | Fan version",
+        SubTitle = "Blox Fruits | https://discord.gg/4uu5PGWjuE",
         TabWidth = 155,
         Size = UDim2.fromOffset(620, 520),
         Acrylic = false,

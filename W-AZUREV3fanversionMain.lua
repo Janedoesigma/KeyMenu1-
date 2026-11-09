@@ -1,906 +1,10 @@
---[[
-    W-AZURE V3  |  by jane doe sigma
-    UI: Fluent
-    Tabs: Main (Banana Farming) / Missions / Config (Banana Setting Farm) / Volcano / Sea Event
-]]
 
-repeat task.wait() until game:IsLoaded()
 
-----------------------------------------------------------------
--- UI (Fluent)
-----------------------------------------------------------------
-local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 
-local Window = Fluent:CreateWindow({
-	Title = "W-AZURE V3",
-	SubTitle = "by jane doe sigma",
-	TabWidth = 140,
-	Size = UDim2.fromOffset(500, 400),
-	Acrylic = false,
-	Theme = "Dark",
-	MinimizeKey = Enum.KeyCode.LeftControl,
-})
 
-local Tabs = {
-	Main = Window:AddTab({ Title = "Main", Icon = "home" }),
-	Missions = Window:AddTab({ Title = "Missions", Icon = "target" }),
-	Config = Window:AddTab({ Title = "Config", Icon = "settings" }),
-	Volcano = Window:AddTab({ Title = "Volcano", Icon = "mountain" }),
-	SeaEvent = Window:AddTab({ Title = "Sea Event", Icon = "waves" }),
-}
-
-local Options = Fluent.Options
-
-----------------------------------------------------------------
--- Services / references
-----------------------------------------------------------------
-local Players = game:GetService("Players")
-local RS = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
-local CollectionService = game:GetService("CollectionService")
-local VIM = game:GetService("VirtualInputManager")
-
-local LP = Players.LocalPlayer
-local Enemies = workspace:WaitForChild("Enemies")
-local Remotes = RS:WaitForChild("Remotes")
-local CommF_ = Remotes:WaitForChild("CommF_")
-local Net = RS:WaitForChild("Modules"):WaitForChild("Net")
-local RegisterAttack = Net:WaitForChild("RE/RegisterAttack")
-local RegisterHit = Net:WaitForChild("RE/RegisterHit")
-
-local HitKey = tostring(LP.UserId):sub(2, 4) .. "078da"
-
-local Unloaded = false
-
--- When there is a fruit on the ground and Auto Collect Fruit is on, the other farms pause
-local FruitState = { Active = false }
-
-----------------------------------------------------------------
--- Utilities
-----------------------------------------------------------------
-local function GetRoot()
-	local char = LP.Character
-	return char and char:FindFirstChild("HumanoidRootPart")
+if getgenv().__BF_LOADED then
+	return getgenv().__BF_RESULT
 end
-
-local function IsAlive(model)
-	local hum = model and model:FindFirstChild("Humanoid")
-	return hum and hum.Health > 0
-end
-
-local function GetDistance(target)
-	local root = GetRoot()
-	if not root then return math.huge end
-	local pos
-	if typeof(target) == "CFrame" then
-		pos = target.Position
-	elseif typeof(target) == "Vector3" then
-		pos = target
-	else
-		return math.huge
-	end
-	return (root.Position - pos).Magnitude
-end
-
-local function FireRemote(...)
-	return CommF_:InvokeServer(...)
-end
-
-local function ActivateHaki()
-	local char = LP.Character
-	if char and not char:FindFirstChild("HasBuso") then
-		FireRemote("Buso")
-	end
-end
-
-local function HasTool(name)
-	local char = LP.Character
-	if char and char:FindFirstChild(name) then return true end
-	local backpack = LP.Backpack
-	if backpack and backpack:FindFirstChild(name) then return true end
-	return false
-end
-
-local function EquipWeapon()
-	local backpack = LP.Backpack
-	local char = LP.Character
-	if not (backpack and char) then return end
-	local hum = char:FindFirstChildOfClass("Humanoid")
-	if not hum then return end
-	local held = char:FindFirstChildOfClass("Tool")
-	local wanted = Options.WeaponType and Options.WeaponType.Value or "Melee"
-	if held and held.ToolTip == wanted then return end
-	for _, tool in ipairs(backpack:GetChildren()) do
-		if tool:IsA("Tool") and tool.ToolTip == wanted then
-			hum:EquipTool(tool)
-			return
-		end
-	end
-end
-
-----------------------------------------------------------------
--- Tween (anti-gravity holder fixed)
-----------------------------------------------------------------
-local ActiveTween, ActiveBV
-
-local function StopTween()
-	if ActiveTween then ActiveTween:Cancel() ActiveTween = nil end
-	if ActiveBV then ActiveBV:Destroy() ActiveBV = nil end
-end
-
-local function TweenTo(cf)
-	local root = GetRoot()
-	if not root then return end
-	local speed = tonumber(Options.TweenSpeed and Options.TweenSpeed.Value) or 210
-	if speed <= 0 then speed = 210 end
-
-	-- Keep the anti-gravity holder alive while farming so the player never falls
-	if not ActiveBV or not ActiveBV.Parent then
-		ActiveBV = Instance.new("BodyVelocity")
-		ActiveBV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-		ActiveBV.Velocity = Vector3.zero
-		ActiveBV.Parent = root
-	end
-
-	local dist = (root.Position - cf.Position).Magnitude
-	if dist < 5 then
-		-- Close enough: keep the player held in place instead of dropping
-		if ActiveTween then ActiveTween:Cancel() ActiveTween = nil end
-		return
-	end
-
-	if ActiveTween then ActiveTween:Cancel() end
-	ActiveTween = TweenService:Create(
-		root,
-		TweenInfo.new(math.max(0.05, dist / speed), Enum.EasingStyle.Linear),
-		{ CFrame = cf }
-	)
-	ActiveTween:Play()
-end
-
-----------------------------------------------------------------
--- Noclip while any farm is active
-----------------------------------------------------------------
-local function AnyFarmActive()
-	return (Options.AutoFarmLevel and Options.AutoFarmLevel.Value)
-		or (Options.AutoFarmNearest and Options.AutoFarmNearest.Value)
-		or (Options.AutoFarmChest and Options.AutoFarmChest.Value)
-		or (Options.AutoCollectFruit and Options.AutoCollectFruit.Value)
-		or (Options.AutoEliteBoss and Options.AutoEliteBoss.Value)
-		or (Options.AutoYama and Options.AutoYama.Value)
-end
-
-RunService.Stepped:Connect(function()
-	if Unloaded or not AnyFarmActive() then return end
-	local char = LP.Character
-	if not char then return end
-	for _, part in ipairs(char:GetDescendants()) do
-		if part:IsA("BasePart") and part.CanCollide then
-			part.CanCollide = false
-		end
-	end
-end)
-
-----------------------------------------------------------------
--- FindEnemy (clean name, nearest)
-----------------------------------------------------------------
-local NameCache = {}
-
-local function FindEnemy(names)
-	local root = GetRoot()
-	if not root then return nil end
-	local set = {}
-	for _, n in ipairs(names) do set[n] = true end
-
-	local best, bestDist = nil, math.huge
-	for _, mob in ipairs(Enemies:GetChildren()) do
-		local hum = mob:FindFirstChild("Humanoid")
-		local hrp = mob:FindFirstChild("HumanoidRootPart")
-		if hum and hrp and hum.Health > 0 then
-			local clean = NameCache[mob.Name] or mob.Name:match("^(.-)%s*%[") or mob.Name
-			NameCache[mob.Name] = clean
-			if set[clean] then
-				local d = (hrp.Position - root.Position).Magnitude
-				if d < bestDist then
-					bestDist = d
-					best = mob
-				end
-			end
-		end
-	end
-	return best
-end
-
-----------------------------------------------------------------
--- Quest system (GetQuestInfo + IsQuestOn + spawns)
-----------------------------------------------------------------
-local function IsQuestOn()
-	local gui = LP.PlayerGui:FindFirstChild("TrackedQuestFrame")
-	return gui and gui.Frame.Visible or false
-end
-
-local function GetQuestInfo()
-	local level = LP.Data.Level.Value
-	local team = tostring(LP.Team)
-	local root = GetRoot()
-	local num, cf, taskKey, questName, reqLevel, mobName
-
-	local function pack()
-		return { Num = num, CFrame = cf, Task = taskKey, Quest = questName, Level = reqLevel, Mob = mobName }
-	end
-
-	if level >= 1 and level <= 9 then
-		if team == "Marines" then
-			num, questName, taskKey, mobName = 1, "MarineQuest", "Trainee", "Trainee"
-			cf = CFrame.new(-2709.67944, 24.5206585, 2104.24585)
-		else
-			num, questName, taskKey, mobName = 1, "BanditQuest1", "Bandit", "Bandit"
-			cf = CFrame.new(1059.99731, 16.9222069, 1549.28162)
-		end
-		reqLevel = 1
-		return pack()
-	end
-
-	if level >= 210 and level <= 249 then
-		num, questName, taskKey, mobName = 2, "PrisonerQuest", "Dangerous Prisoner", "Dangerous Prisoner"
-		reqLevel = 210
-		cf = CFrame.new(5308.93115, 1.65517521, 475.120514)
-		return pack()
-	end
-
-	reqLevel = 0
-	for npc, data in pairs(require(RS.GuideModule).Data.NPCList) do
-		local levels = data.Levels
-		for i = 1, #levels do
-			local lv = levels[i]
-			if level >= lv and lv > reqLevel then
-				reqLevel = lv
-				num = (#levels == 3 and i == 3) and 2 or i
-				cf = npc.CFrame
-			end
-		end
-	end
-
-	if root and cf then
-		local mag = (cf.Position - root.Position).Magnitude
-		if level >= 375 and level <= 449 and mag > 3000 then
-			FireRemote("requestEntrance", Vector3.new(61163.85, 11.6797, 1819.7842))
-		elseif level >= 450 and level <= 474 and mag > 3000 then
-			FireRemote("requestEntrance", Vector3.new(-4607.8228, 872.5425, -1667.5569))
-		elseif level >= 475 and level <= 624 and mag > 5000 then
-			FireRemote("requestEntrance", Vector3.new(-7894.6177, 5547.1416, -380.2912))
-		end
-	end
-
-	local Quests = require(RS.Quests)
-	for qName, quest in pairs(Quests) do
-		if qName ~= "CitizenQuest" then
-			for qNum, qData in pairs(quest) do
-				if qData.LevelReq == reqLevel then
-					questName = qName
-					num = qNum
-					for taskName in pairs(qData.Task) do
-						taskKey = taskName
-						mobName = string.split(taskName, " [Lv. " .. qData.LevelReq .. "]")[1]
-					end
-				end
-			end
-		end
-	end
-
-	if questName == "ImpelQuest" then
-		questName, num = "PrisonerQuest", 2
-		taskKey, mobName = "Dangerous Prisoner", "Dangerous Prisoner"
-		reqLevel = 210
-		cf = CFrame.new(5310.60547, 0.350014925, 474.946594)
-	elseif questName == "Area2Quest" and num == 2 then
-		num = 1
-		taskKey, mobName = "Swan Pirate", "Swan Pirate"
-		reqLevel = 775
-	end
-
-	if level >= 2500 and level <= 2524 then
-		taskKey, mobName = "Sun-kissed Warrior", "Sun-kissed Warriors"
-	end
-
-	return pack()
-end
-
-local SpawnIndex = 1
-local function GoToSpawn(mobName)
-	local folder = RS:FindFirstChild("FortBuilderReplicatedSpawnPositionsFolder")
-	if not folder then return false end
-
-	local function clean(s)
-		return (s:gsub("Lv%.", ""):gsub("[%[%] %d]", ""):gsub("%s+", ""))
-	end
-	local wanted = clean(mobName)
-
-	local spawns = {}
-	for _, part in ipairs(folder:GetChildren()) do
-		if part:IsA("Part") and part:GetAttribute("Active") and clean(part.Name) == wanted then
-			table.insert(spawns, part:GetPivot())
-		end
-	end
-	if #spawns == 0 then return false end
-	if SpawnIndex > #spawns then SpawnIndex = 1 end
-
-	local target = spawns[SpawnIndex]
-	local dist = GetDistance(target.Position)
-	if dist > 20 then
-		TweenTo(target * CFrame.new(0, dist > 150 and 65 or 30, 5))
-	end
-	SpawnIndex = SpawnIndex % #spawns + 1
-	return true
-end
-
-----------------------------------------------------------------
--- Bring Mob
-----------------------------------------------------------------
-local function BringMobs(target, cf)
-	if not (Options.BringMob and Options.BringMob.Value) then return end
-	if not target or not target.Parent then return end
-
-	local radius = tonumber(Options.BringRadius and Options.BringRadius.Value) or 300
-	local radiusSq = radius * radius
-	local pos = cf.Position
-
-	pcall(function()
-		sethiddenproperty(LP, "SimulationRadius", math.huge)
-		sethiddenproperty(LP, "MaxSimulationRadius", math.huge)
-	end)
-
-	for _, mob in ipairs(Enemies:GetChildren()) do
-		if mob.Name == target.Name then
-			local hum = mob:FindFirstChildOfClass("Humanoid")
-			local hrp = mob:FindFirstChild("HumanoidRootPart")
-			if hum and hrp and hum.Health > 0 and mob:FindFirstChild("CharacterReady") then
-				local diff = hrp.Position - pos
-				if diff:Dot(diff) <= radiusSq and not hrp:GetAttribute("BeingBrought") then
-					hrp:SetAttribute("BeingBrought", true)
-
-					for _, d in ipairs(mob:GetDescendants()) do
-						if d:IsA("BasePart") then
-							d.CanCollide = false
-							d.CanTouch = false
-							d.Massless = true
-						end
-					end
-
-					local lock = Instance.new("BodyVelocity")
-					lock.Name = "Lock"
-					lock.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-					lock.P = 9000
-					lock.Velocity = Vector3.zero
-					lock.Parent = hrp
-
-					hum.AutoRotate = false
-					pcall(function() hum:ChangeState(Enum.HumanoidStateType.Physics) end)
-
-					local goal = pos + Vector3.new(math.random(-20, 20) / 100, 0, math.random(-20, 20) / 100)
-					local vec = goal - hrp.Position
-					if vec.Magnitude > 0.5 then
-						lock.Velocity = vec.Unit * math.clamp(vec.Magnitude * 10, 20, 1200)
-					else
-						lock.Velocity = Vector3.zero
-						pcall(function() hrp.CFrame = CFrame.new(goal) end)
-					end
-
-					task.delay(0.12, function()
-						pcall(function()
-							if lock.Parent then lock:Destroy() end
-							if hrp.Parent then hrp:SetAttribute("BeingBrought", false) end
-						end)
-					end)
-				end
-			end
-		end
-	end
-end
-
-----------------------------------------------------------------
--- Fast Attack
-----------------------------------------------------------------
-local function GetHits(range)
-	local hits = {}
-	local root = GetRoot()
-	if not root then return hits end
-	for _, folder in ipairs({ workspace.Enemies, workspace.Characters }) do
-		for _, child in ipairs(folder:GetChildren()) do
-			local hum = child:FindFirstChildOfClass("Humanoid")
-			local hrp = child:FindFirstChild("HumanoidRootPart")
-			if child ~= LP.Character and hum and hrp and hum.Health > 0
-				and (hrp.Position - root.Position).Magnitude <= range then
-				table.insert(hits, { child, child:FindFirstChild("Head") or hrp })
-			end
-		end
-	end
-	return hits
-end
-
-local FruitM1 = { last = 0, delay = 0 }
-
-local function AttackOnce()
-	local char = LP.Character
-	local tool = char and char:FindFirstChildOfClass("Tool")
-	if not tool then return end
-	local tip = tool.ToolTip
-
-	if tip == "Blox Fruit" and tool:FindFirstChild("LeftClickRemote") then
-		local root = GetRoot()
-		if not root then return end
-		local now = tick()
-		FruitM1.delay = (now - FruitM1.last <= 0.4) and math.min(FruitM1.delay + 1, 4) or 1
-		FruitM1.last = now
-		for _, mob in ipairs(Enemies:GetChildren()) do
-			local hrp = mob:FindFirstChild("HumanoidRootPart")
-			if hrp and IsAlive(mob) and (hrp.Position - root.Position).Magnitude <= 50 then
-				tool.LeftClickRemote:FireServer((hrp.Position - root.Position).Unit, FruitM1.delay)
-			end
-		end
-	elseif tip == "Melee" or tip == "Sword" then
-		local hits = GetHits(60)
-		if #hits > 0 then
-			RegisterAttack:FireServer(0)
-			local first = table.remove(hits, 1)
-			RegisterHit:FireServer(first[2], hits, nil, HitKey)
-		end
-	end
-end
-
-task.spawn(function()
-	while task.wait() do
-		if Unloaded then break end
-		if Options.FastAttack and Options.FastAttack.Value then
-			pcall(AttackOnce)
-		end
-	end
-end)
-
-----------------------------------------------------------------
--- Engage
-----------------------------------------------------------------
-local function EngageEnemy(mob, flagName)
-	local hrp = mob and mob:FindFirstChild("HumanoidRootPart")
-	if not hrp then return end
-	local cf = hrp.CFrame
-
-	while not Unloaded and Options[flagName] and Options[flagName].Value and mob.Parent and IsAlive(mob) do
-		RunService.Heartbeat:Wait()
-		EquipWeapon()
-		ActivateHaki()
-		BringMobs(mob, cf)
-		local height = tonumber(Options.FarmDistance and Options.FarmDistance.Value) or 20
-		TweenTo(cf + Vector3.new(0, height, 0))
-	end
-end
-
-----------------------------------------------------------------
--- Generic loop
-----------------------------------------------------------------
-local function CreateLoop(flagName, fn, delay)
-	task.spawn(function()
-		while not Unloaded do
-			if Options[flagName] and Options[flagName].Value then
-				local ok, err = pcall(fn)
-				if not ok then warn("[W-AZURE] " .. flagName .. ": " .. tostring(err)) end
-			end
-			task.wait(delay or 0)
-		end
-	end)
-end
-
--- TAB MISSIONS
-----------------------------------------------------------------
-Tabs.Missions:AddParagraph({
-	Title = "Auto Elite Boss",
-	Content = "Farms the elite bosses (Diablo, Deandre, Urban) and picks up the Elite Hunter quest when needed.",
-})
-
-local tgElite = Tabs.Missions:AddToggle("AutoEliteBoss", {
-	Title = "Auto Elite Boss",
-	Description = "Farms elite bosses automatically",
-	Default = false,
-})
-tgElite:OnChanged(function()
-	if not tgElite.Value then StopTween() end
-end)
-
-CreateLoop("AutoEliteBoss", function()
-	if not IsAlive(LP.Character) then return end
-
-	local bosses = { "Diablo", "Deandre", "Urban" }
-	local boss = FindEnemy(bosses)
-
-	if boss and IsQuestOn() then
-		EngageEnemy(boss, "AutoEliteBoss")
-	else
-		-- If we already own the chalice we can teleport straight into the elite area
-		if HasTool("God's Chalice") then
-			FireRemote("requestEntrance", Vector3.new(-12471.17, 374.94025, -7551.6777))
-			return
-		end
-		-- Otherwise take the Elite Hunter quest
-		if not IsQuestOn() then
-			FireRemote("EliteHunter")
-		end
-	end
-end, 0.5)
-
-Tabs.Missions:AddParagraph({
-	Title = "Auto Yama",
-	Content = "Farms elite bosses until Elite Hunter progress reaches 30, then fetches Yama at the Waterfall.",
-})
-
-local function FindYamaKatana()
-	local map = workspace:FindFirstChild("Map")
-	if not map then return nil end
-	local waterfall = map:FindFirstChild("Waterfall")
-	if not waterfall then return nil end
-	return waterfall:FindFirstChild("SealedKatana")
-end
-
-local tgYama = Tabs.Missions:AddToggle("AutoYama", {
-	Title = "Auto Yama",
-	Description = "Fetches Yama once Elite Hunter progress is 30",
-	Default = false,
-})
-tgYama:OnChanged(function()
-	if not tgYama.Value then StopTween() end
-end)
-
-CreateLoop("AutoYama", function()
-	if not IsAlive(LP.Character) then return end
-
-	-- Already have Yama? Nothing to do
-	if HasTool("Yama") then return end
-
-	local progress = tonumber(FireRemote("EliteHunter", "Progress")) or 0
-
-	if progress >= 30 then
-		-- Go to the sealed katana and pick Yama up
-		local katana = FindYamaKatana()
-		if katana and katana:FindFirstChild("Handle") then
-			local handle = katana.Handle
-			if GetDistance(handle.CFrame) > 8 then
-				TweenTo(handle.CFrame)
-			else
-				local cd = handle:FindFirstChild("ClickDetecter") or handle:FindFirstChild("ClickDetector")
-				if cd then
-					fireclickdetector(cd)
-				end
-			end
-		end
-		return
-	end
-
-	-- Below 30: let Auto Elite Boss handle the farming when it's also on
-	if Options.AutoEliteBoss and Options.AutoEliteBoss.Value then return end
-
-	local bosses = { "Diablo", "Deandre", "Urban" }
-	local boss = FindEnemy(bosses)
-
-	if boss and IsQuestOn() then
-		EngageEnemy(boss, "AutoYama")
-	else
-		if not IsQuestOn() then
-			FireRemote("EliteHunter")
-		end
-	end
-end, 0.5)
-
-
-
-----------------------------------------------------------------
--- BANANA CAT HUB -> FLUENT BRIDGE
--- Only these Banana pages are displayed in Fluent:
--- Farming -> Main, Setting Farm -> Config,
--- Volcano Event -> Volcano, Sea Event -> Sea Event.
--- Remaining Banana pages get safe dummy controls so their
--- internal references do not stop the selected modules.
-----------------------------------------------------------------
-local BananaPageTabs = {
-    ["Farming"] = Tabs.Main,
-    ["Setting Farm"] = Tabs.Config,
-    ["Volcano Event"] = Tabs.Volcano,
-    ["Sea Event"] = Tabs.SeaEvent,
-}
-
-local function BananaDummy()
-    local obj = {}
-    local function valueArg(a, b)
-        if b ~= nil then return b end
-        return a
-    end
-    obj.SetStage = function(a, b) obj._value = valueArg(a, b) end
-    obj.SetText = function(a, b) obj._text = valueArg(a, b) end
-    obj.GetNewList = function(a, b) obj._list = valueArg(a, b) end
-    obj.SetValue = function(a, b) obj._value = valueArg(a, b) end
-    return setmetatable(obj, {
-        __index = function(self, k)
-            if k == "Value" then return rawget(self, "_value") end
-            return function() return self end
-        end,
-        __newindex = function(self, k, v) rawset(self, k, v) end,
-    })
-end
-
-local BananaControlId = 0
-
-local function BananaOptionKey(pageName, sectionName, title)
-    BananaControlId += 1
-    local raw = table.concat({
-        tostring(pageName or "Page"),
-        tostring(sectionName or "Section"),
-        tostring(title or "Control"),
-        tostring(BananaControlId),
-    }, "_")
-    return raw:gsub("[^%w_]", "_")
-end
-
-local function BananaListValues(list)
-    local values = {}
-    if type(list) ~= "table" then return values end
-
-    if #list > 0 then
-        for _, value in ipairs(list) do
-            if type(value) == "string" or type(value) == "number" then
-                table.insert(values, tostring(value))
-            elseif type(value) == "table" and value.Title then
-                table.insert(values, tostring(value.Title))
-            end
-        end
-    else
-        for key, value in pairs(list) do
-            if type(key) == "string" and type(value) == "boolean" then
-                table.insert(values, key)
-            end
-        end
-        table.sort(values)
-    end
-    return values
-end
-
-local function BananaSelectedMap(value, allValues)
-    local selected = {}
-    if type(value) ~= "table" then return selected end
-
-    for key, state in pairs(value) do
-        if type(key) == "string" and type(state) == "boolean" then
-            selected[key] = state
-        elseif type(state) == "string" or type(state) == "number" then
-            selected[tostring(state)] = true
-        end
-    end
-
-    if #value > 0 then
-        for _, item in ipairs(value) do
-            selected[tostring(item)] = true
-        end
-    end
-
-    for _, item in ipairs(allValues or {}) do
-        selected[item] = selected[item] == true
-    end
-    return selected
-end
-
-local function BananaDefaultMulti(value, allValues)
-    local map = BananaSelectedMap(value, allValues)
-    local result = {}
-    for _, item in ipairs(allValues or {}) do
-        if map[item] then table.insert(result, item) end
-    end
-    return result
-end
-
-local function BananaHandle(control, optionKey, kind)
-    local handle = {}
-
-    local function setControlValue(value)
-        if not control then return end
-        pcall(function()
-            if type(control.SetValue) == "function" then
-                control:SetValue(value)
-            elseif type(control.SetStage) == "function" then
-                control:SetStage(value)
-            end
-        end)
-    end
-
-    handle.SetStage = function(a, b)
-        setControlValue(b ~= nil and b or a)
-    end
-    handle.SetValue = function(a, b)
-        setControlValue(b ~= nil and b or a)
-    end
-    handle.SetText = function(a, b)
-        local value = tostring(b ~= nil and b or a)
-        pcall(function()
-            if control and type(control.SetDesc) == "function" then
-                control:SetDesc(value)
-            elseif control and type(control.SetTitle) == "function" then
-                control:SetTitle(value)
-            end
-        end)
-    end
-    handle.GetNewList = function(a, b)
-        local values = b ~= nil and b or a
-        pcall(function()
-            if control and type(control.SetValues) == "function" then
-                control:SetValues(values)
-            end
-        end)
-    end
-
-    return setmetatable(handle, {
-        __index = function(_, key)
-            if key == "Value" then
-                local option = Fluent.Options[optionKey]
-                return option and option.Value
-            end
-            if control then
-                local ok, value = pcall(function() return control[key] end)
-                if ok then return value end
-            end
-            return nil
-        end,
-    })
-end
-
-local function BananaMakeControl(tab, pageName, sectionName, kind, config, callback)
-    if not tab then return BananaDummy() end
-    config = type(config) == "table" and config or {}
-    local title = config.Title or kind
-    local key = BananaOptionKey(pageName, sectionName, title)
-    local control
-
-    if kind == "Toggle" then
-        control = tab:AddToggle(key, {
-            Title = tostring(title),
-            Description = tostring(config.Desc or config.Description or ""),
-            Default = config.Default == true,
-        })
-        if callback and control and type(control.OnChanged) == "function" then
-            control:OnChanged(function(value)
-                callback(value == true)
-            end)
-        end
-
-    elseif kind == "Dropdown" then
-        local values = BananaListValues(config.List or config.Values)
-        local multi = config.Selected == true
-        local defaultValue = config.Default
-        if multi then
-            defaultValue = BananaDefaultMulti(defaultValue, values)
-        elseif type(defaultValue) == "table" then
-            defaultValue = defaultValue[1]
-        end
-
-        control = tab:AddDropdown(key, {
-            Title = tostring(title),
-            Values = values,
-            Multi = multi,
-            Default = defaultValue,
-        })
-
-        if callback and control and type(control.OnChanged) == "function" then
-            if multi then
-                local previous = BananaSelectedMap(defaultValue, values)
-                control:OnChanged(function(newValue)
-                    local current = BananaSelectedMap(newValue, values)
-                    for _, item in ipairs(values) do
-                        if previous[item] ~= current[item] then
-                            callback(item, current[item] == true)
-                        end
-                    end
-                    previous = current
-                end)
-            else
-                control:OnChanged(function(value)
-                    callback(value)
-                end)
-            end
-        end
-
-    elseif kind == "Slider" then
-        control = tab:AddSlider(key, {
-            Title = tostring(title),
-            Min = tonumber(config.Min) or 0,
-            Max = tonumber(config.Max) or 100,
-            Default = tonumber(config.Default) or 0,
-            Rounding = config.Precise and 2 or 0,
-        })
-        if callback and control and type(control.OnChanged) == "function" then
-            control:OnChanged(function(value)
-                callback(value)
-            end)
-        end
-
-    elseif kind == "Button" then
-        control = tab:AddButton({
-            Title = tostring(title),
-            Description = tostring(config.Desc or config.Description or ""),
-            Callback = function()
-                if callback then callback() end
-            end,
-        })
-
-    elseif kind == "Label" then
-        control = tab:AddParagraph({
-            Title = tostring(title),
-            Content = tostring(config.Content or config.Desc or ""),
-        })
-
-    else
-        return BananaDummy()
-    end
-
-    return BananaHandle(control, key, kind)
-end
-
-local function BananaMakeSection(tab, pageName, sectionName)
-    if not tab then
-        return setmetatable({}, {
-            __index = function()
-                return function() return BananaDummy() end
-            end,
-        })
-    end
-
-    pcall(function()
-        if type(tab.AddSection) == "function" then
-            tab:AddSection(tostring(sectionName))
-        end
-    end)
-
-    local section = {}
-    for _, kind in ipairs({ "Toggle", "Dropdown", "Slider", "Button", "Label", "Box", "Bind" }) do
-        section["Create" .. kind] = function(config, callback)
-            return BananaMakeControl(tab, pageName, sectionName, kind, config, callback)
-        end
-    end
-    return section
-end
-
-local function CreateBananaFluentBridge()
-    local bridge = { Options = Fluent.Options }
-
-    bridge.CreateNoti = function(config)
-        config = type(config) == "table" and config or {}
-        pcall(function()
-            Fluent:Notify({
-                Title = tostring(config.Title or "W-AZURE V3"),
-                Content = tostring(config.Desc or ""),
-                Duration = tonumber(config.ShowTime) or 5,
-            })
-        end)
-        return BananaDummy()
-    end
-
-    bridge.CreateMain = function()
-        local main = {}
-        main.CreatePage = function(pageConfig)
-            pageConfig = type(pageConfig) == "table" and pageConfig or {}
-            local pageName = tostring(pageConfig.Page_Name or "Page")
-            local tab = BananaPageTabs[pageName]
-            local page = {}
-            page.CreateSection = function(sectionName)
-                return BananaMakeSection(tab, pageName, sectionName)
-            end
-            return page
-        end
-        return main
-    end
-
-    return bridge
-end
-
-do -- Banana Cat Hub backend adapted to Fluent
-
-
-
 
 repeat
 	wait()
@@ -1137,8 +241,8 @@ end
 
 Settings = {}
 HttpService = game:GetService("HttpService")
-FolderName = "W-AZURE V3"
-SaveFileNameGame = "-BloxFruit-WAZURE.json"
+FolderName = "Banana Cat Hub"
+SaveFileNameGame = "-BloxFruitBNNC.json"
 SaveFileName = game.Players.LocalPlayer.Name .. SaveFileNameGame
 function SaveSettings(b, t, A)
 	if A ~= nil then
@@ -1257,6 +361,9 @@ getgenv().ExploitReq = (syn and syn.request)
 	or request
 	or requests
 getgenv().request = getgenv().request or getgenv().ExploitReq
+if getgenv().LoadScript then
+	return print("Double UI")
+end
 getgenv().CheckPlaceId = game.PlaceId == 100117331123089 and 100117331123089 or 7449423635
 getgenv().CheckPlaceId2 = game.PlaceId == 4442272183 and 4442272183 or 79091703265657
 getgenv().CheckPlaceId3 = game.PlaceId == 2753915549 and 2753915549 or 85211729168715
@@ -1272,8 +379,603 @@ game:GetService("Players").LocalPlayer.Idled:connect(function()
 	wait(1)
 	vu:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
 end)
-local A = CreateBananaFluentBridge()
-Main = A.CreateMain({ Title = "W-AZURE V3", Desc = "Banana Cat Hub logic on Fluent" })
+-- ============================================================================
+-- BANANA CAT HUB -> FLUENT UI ADAPTER
+-- Mantem a API antiga (CreatePage/CreateSection/CreateToggle/etc.) para que
+-- as rotinas do Banana Cat Hub continuem chamando os mesmos controles.
+-- A interface visual e os widgets agora sao fornecidos pelo Fluent.
+-- ============================================================================
+local Fluent = loadstring(game:HttpGet(
+    "https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"
+))()
+
+local SaveManager
+local InterfaceManager
+pcall(function()
+    SaveManager = loadstring(game:HttpGet(
+        "https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"
+    ))()
+end)
+pcall(function()
+    InterfaceManager = loadstring(game:HttpGet(
+        "https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"
+    ))()
+end)
+
+local Window
+local A = { Options = {} }
+local FluentControlIndex = 0
+local FluentMainAdapter
+
+local function FluentNextId(kind, title)
+    FluentControlIndex += 1
+    local clean = tostring(title or "Control"):gsub("[^%w_]", "_")
+    clean = clean:sub(1, 28)
+    return string.format("BCH_%s_%03d_%s", kind, FluentControlIndex, clean)
+end
+
+local function FluentCopyMap(source)
+    local result = {}
+    if type(source) == "table" then
+        for key, value in pairs(source) do
+            result[key] = value
+        end
+    end
+    return result
+end
+
+local function FluentListFrom(list)
+    local values = {}
+    if type(list) ~= "table" then
+        return values
+    end
+
+    if #list > 0 then
+        for _, value in ipairs(list) do
+            if type(value) == "table" then
+                values[#values + 1] = tostring(value.Title or value.KeyName or value.Name or #values + 1)
+            else
+                values[#values + 1] = tostring(value)
+            end
+        end
+    else
+        for key in pairs(list) do
+            values[#values + 1] = tostring(key)
+        end
+        table.sort(values)
+    end
+    return values
+end
+
+local function FluentMultiDefault(defaultValue, values, sourceList)
+    local selected = {}
+    if type(defaultValue) == "table" then
+        if #defaultValue > 0 then
+            for _, value in ipairs(defaultValue) do
+                selected[tostring(value)] = true
+            end
+        else
+            for key, enabled in pairs(defaultValue) do
+                if enabled == true then
+                    selected[tostring(key)] = true
+                end
+            end
+        end
+    elseif type(defaultValue) == "string" then
+        selected[defaultValue] = true
+    end
+
+    if next(selected) == nil and type(sourceList) == "table" and #sourceList == 0 then
+        for key, enabled in pairs(sourceList) do
+            if enabled == true then
+                selected[tostring(key)] = true
+            end
+        end
+    end
+
+    local result = {}
+    for _, value in ipairs(values) do
+        if selected[value] then
+            result[#result + 1] = value
+        end
+    end
+    return result
+end
+
+local function FluentMultiMap(value, values)
+    local result = {}
+    for _, name in ipairs(values) do
+        result[name] = type(value) == "table" and value[name] == true or false
+    end
+    return result
+end
+
+local function FluentRegisterOption(title, metadata)
+    A.Options[tostring(title or "Unnamed")] = metadata
+    return metadata
+end
+
+local function FluentCreateControlProxy(widget, setStage)
+    local proxy = { Value = widget and widget.Value }
+    proxy.SetValue = function(first, second)
+        local value = second
+        if value == nil then value = first end
+        if widget and widget.SetValue then
+            widget:SetValue(value)
+        end
+        proxy.Value = value
+    end
+    proxy.SetStage = function(first, second)
+        local value = second
+        if value == nil then value = first end
+        if setStage then
+            setStage(value)
+        elseif widget and widget.SetValue then
+            widget:SetValue(value)
+        end
+        proxy.Value = value
+    end
+    return proxy
+end
+
+function A.CreateMain(config)
+    config = config or {}
+    Window = Fluent:CreateWindow({
+        Title = "Banana Cat Hub",
+        SubTitle = "Blox Fruits | Fluent UI",
+        TabWidth = 155,
+        Size = UDim2.fromOffset(620, 520),
+        Acrylic = false,
+        Theme = "Dark",
+        MinimizeKey = Enum.KeyCode.LeftControl
+    })
+
+    FluentMainAdapter = {
+        Pages = {},
+        LastTab = nil,
+        FirstTab = nil
+    }
+
+    function FluentMainAdapter.CreatePage(pageConfig)
+        pageConfig = pageConfig or {}
+        local pageName = tostring(pageConfig.Page_Name or pageConfig.Page_Title or "Page")
+        local pageTitle = tostring(pageConfig.Page_Title or pageName)
+        local tab = Window:AddTab({ Title = pageTitle, Icon = "" })
+
+        local page = {
+            Page_Name = pageName,
+            Page_Title = pageTitle,
+            Tab = tab
+        }
+
+        if not FluentMainAdapter.FirstTab then
+            FluentMainAdapter.FirstTab = tab
+        end
+        FluentMainAdapter.LastTab = tab
+        FluentMainAdapter.Pages[#FluentMainAdapter.Pages + 1] = page
+
+        function page.CreateSection(sectionName)
+            sectionName = tostring(sectionName or "Section")
+            local container = tab
+            local ok, result = pcall(function()
+                return tab:AddSection(sectionName)
+            end)
+            if ok and result then
+                container = result
+            else
+                pcall(function()
+                    tab:AddParagraph({ Title = sectionName, Content = "" })
+                end)
+            end
+
+            local section = {
+                Section_Name = sectionName,
+                Page_Name = pageName,
+                Container = container
+            }
+
+            function section.CreateToggle(controlConfig, callback)
+                controlConfig = controlConfig or {}
+                local title = tostring(controlConfig.Title or "Toggle")
+                local defaultValue = controlConfig.Default == true
+                local id = FluentNextId("Toggle", title)
+                local ready = false
+                local metadata = FluentRegisterOption(title, {
+                    type = "toggle",
+                    value = defaultValue,
+                    Page_Name = pageName,
+                    Section_Name = sectionName
+                })
+
+                local widget = container:AddToggle(id, {
+                    Title = title,
+                    Description = controlConfig.Desc or controlConfig.Description or "",
+                    Default = defaultValue,
+                    Callback = function(value)
+                        metadata.value = value == true
+                        if ready and type(callback) == "function" then
+                            callback(value == true)
+                        end
+                    end
+                })
+                ready = true
+
+                local control = FluentCreateControlProxy(widget)
+                metadata.FunctionCreate = {
+                    SetValue = function(value) widget:SetValue(value == true) end,
+                    SetStage = function(value) widget:SetValue(value == true) end
+                }
+                return control
+            end
+
+            function section.CreateButton(controlConfig, callback)
+                controlConfig = controlConfig or {}
+                local title = tostring(controlConfig.Title or "Button")
+                local metadata = FluentRegisterOption(title, {
+                    type = "button",
+                    value = title,
+                    Page_Name = pageName,
+                    Section_Name = sectionName
+                })
+                local widget = container:AddButton({
+                    Title = title,
+                    Description = controlConfig.Desc or controlConfig.Description or "",
+                    Callback = function()
+                        if type(callback) == "function" then
+                            callback()
+                        end
+                    end
+                })
+                metadata.FunctionCreate = widget
+                return widget
+            end
+
+            function section.CreateSlider(controlConfig, callback)
+                controlConfig = controlConfig or {}
+                local title = tostring(controlConfig.Title or "Slider")
+                local minimum = tonumber(controlConfig.Min) or 0
+                local maximum = tonumber(controlConfig.Max) or 100
+                if maximum <= minimum then maximum = minimum + 1 end
+                local defaultValue = tonumber(controlConfig.Default) or minimum
+                defaultValue = math.clamp(defaultValue, minimum, maximum)
+                local step = controlConfig.Precise and 0.1 or 1
+                local id = FluentNextId("Slider", title)
+                local ready = false
+                local metadata = FluentRegisterOption(title, {
+                    type = "slider",
+                    min = minimum,
+                    max = maximum,
+                    step = step,
+                    value = defaultValue,
+                    Page_Name = pageName,
+                    Section_Name = sectionName
+                })
+
+                local widget = container:AddSlider(id, {
+                    Title = title,
+                    Description = controlConfig.Desc or controlConfig.Description or "",
+                    Min = minimum,
+                    Max = maximum,
+                    Default = defaultValue,
+                    Rounding = controlConfig.Precise and 2 or 0,
+                    Callback = function(value)
+                        metadata.value = value
+                        if ready and type(callback) == "function" then
+                            callback(value)
+                        end
+                    end
+                })
+                ready = true
+
+                local control = FluentCreateControlProxy(widget)
+                metadata.FunctionCreate = {
+                    SetValue = function(value) widget:SetValue(tonumber(value) or minimum) end
+                }
+                return control
+            end
+
+            function section.CreateDropdown(controlConfig, callback)
+                controlConfig = controlConfig or {}
+                local title = tostring(controlConfig.Title or "Dropdown")
+                local list = controlConfig.List or {}
+
+                -- Dropdown especial do Banana: cada item da lista e um slider.
+                if controlConfig.Slider == true then
+                    local descriptorList = type(list) == "table" and list or {}
+                    local subWidgets = {}
+                    local subValues = {}
+                    local readyByKey = {}
+                    local metadata = FluentRegisterOption(title, {
+                        type = "slider_dropdown",
+                        list = descriptorList,
+                        value = subValues,
+                        Page_Name = pageName,
+                        Section_Name = sectionName
+                    })
+
+                    pcall(function()
+                        container:AddParagraph({
+                            Title = title,
+                            Content = "Ajuste o tempo de cada habilidade."
+                        })
+                    end)
+
+                    for key, descriptor in pairs(descriptorList) do
+                        if type(descriptor) == "table" then
+                            local itemKey = tostring(descriptor.KeyName or key)
+                            local itemTitle = tostring(descriptor.Title or itemKey)
+                            local minValue = tonumber(descriptor.Min) or 0
+                            local maxValue = tonumber(descriptor.Max) or 5
+                            local defaultValue = tonumber(descriptor.Default) or minValue
+                            if maxValue <= minValue then maxValue = minValue + 1 end
+                            defaultValue = math.clamp(defaultValue, minValue, maxValue)
+                            subValues[itemKey] = defaultValue
+                            local id = FluentNextId("Delay", title .. "_" .. itemKey)
+                            readyByKey[itemKey] = false
+
+                            local widget = container:AddSlider(id, {
+                                Title = title .. " - " .. itemTitle,
+                                Min = minValue,
+                                Max = maxValue,
+                                Default = defaultValue,
+                                Rounding = descriptor.Precise and 2 or 1,
+                                Callback = function(value)
+                                    descriptor.Default = value
+                                    subValues[itemKey] = value
+                                    if readyByKey[itemKey] and type(callback) == "function" then
+                                        callback(descriptor, value)
+                                    end
+                                end
+                            })
+                            subWidgets[itemKey] = widget
+                            readyByKey[itemKey] = true
+                        end
+                    end
+
+                    local control = {}
+                    control.SetSubValue = function(first, second, third)
+                        local key, value
+                        if third ~= nil then
+                            key, value = tostring(second), third
+                        else
+                            key, value = tostring(first), second
+                        end
+                        local widget = subWidgets[key]
+                        if widget then
+                            widget:SetValue(tonumber(value) or 0)
+                        end
+                    end
+                    control.SetValue = function(first, second)
+                        local value = second ~= nil and second or first
+                        if type(value) == "table" then
+                            for key, subValue in pairs(value) do
+                                control.SetSubValue(key, subValue)
+                            end
+                        end
+                    end
+                    metadata.FunctionCreate = {
+                        SetSubValue = function(first, second, third)
+                            local key, value
+                            if third ~= nil then
+                                key, value = tostring(second), third -- chamada com ":"
+                            else
+                                key, value = tostring(first), second -- chamada com "."
+                            end
+                            local widget = subWidgets[key]
+                            if widget then widget:SetValue(tonumber(value) or 0) end
+                        end,
+                        SetValue = function(value)
+                            if type(value) == "table" then
+                                for key, subValue in pairs(value) do
+                                    local widget = subWidgets[tostring(key)]
+                                    if widget then widget:SetValue(tonumber(subValue) or 0) end
+                                end
+                            end
+                        end
+                    }
+                    return control
+                end
+
+                local values = FluentListFrom(list)
+                local isMulti = controlConfig.Selected == true or controlConfig.Multi == true
+                local id = FluentNextId(isMulti and "MultiDropdown" or "Dropdown", title)
+                local defaultValue = controlConfig.Default
+                local ready = false
+                local metadata
+                local previousState = {}
+
+                if isMulti then
+                    local defaults = FluentMultiDefault(defaultValue, values, list)
+                    previousState = FluentMultiMap(defaults, values)
+                    metadata = FluentRegisterOption(title, {
+                        type = "multi_toggle",
+                        list = values,
+                        value = FluentCopyMap(previousState),
+                        Page_Name = pageName,
+                        Section_Name = sectionName
+                    })
+
+                    local widget = container:AddDropdown(id, {
+                        Title = title,
+                        Description = controlConfig.Desc or controlConfig.Description or "",
+                        Values = values,
+                        Multi = true,
+                        Default = defaults,
+                        Callback = function(newValue)
+                            local currentState = FluentMultiMap(newValue, values)
+                            metadata.value = FluentCopyMap(currentState)
+                            if ready and type(callback) == "function" then
+                                for _, optionName in ipairs(values) do
+                                    if previousState[optionName] ~= currentState[optionName] then
+                                        callback(optionName, currentState[optionName])
+                                    end
+                                end
+                            end
+                            previousState = FluentCopyMap(currentState)
+                        end
+                    })
+                    ready = true
+
+                    local control = FluentCreateControlProxy(widget)
+                    control.SetValue = function(first, second)
+                        local value = second ~= nil and second or first
+                        local selected = FluentMultiDefault(value, values, nil)
+                        local selectedMap = {}
+                        for _, optionName in ipairs(selected) do
+                            selectedMap[optionName] = true
+                        end
+                        widget:SetValue(selectedMap)
+                    end
+                    metadata.FunctionCreate = {
+                        SetValue = function(value)
+                            local selected = FluentMultiDefault(value, values, nil)
+                            local selectedMap = {}
+                            for _, optionName in ipairs(selected) do
+                                selectedMap[optionName] = true
+                            end
+                            widget:SetValue(selectedMap)
+                        end
+                    }
+                    return control
+                else
+                    local normalizedDefault = defaultValue
+                    if type(normalizedDefault) == "number" then
+                        normalizedDefault = values[normalizedDefault]
+                    elseif type(normalizedDefault) == "table" then
+                        normalizedDefault = normalizedDefault[1]
+                    end
+                    metadata = FluentRegisterOption(title, {
+                        type = "dropdown",
+                        list = values,
+                        value = normalizedDefault,
+                        Page_Name = pageName,
+                        Section_Name = sectionName
+                    })
+
+                    local widget = container:AddDropdown(id, {
+                        Title = title,
+                        Description = controlConfig.Desc or controlConfig.Description or "",
+                        Values = values,
+                        Multi = false,
+                        Default = normalizedDefault,
+                        Callback = function(value)
+                            metadata.value = value
+                            if ready and type(callback) == "function" then
+                                callback(value)
+                            end
+                        end
+                    })
+                    ready = true
+
+                    local control = FluentCreateControlProxy(widget)
+                    metadata.FunctionCreate = {
+                        SetValue = function(value) widget:SetValue(value) end
+                    }
+                    return control
+                end
+            end
+
+            function section.CreateLabel(controlConfig)
+                controlConfig = controlConfig or {}
+                local initialText = tostring(controlConfig.Title or "Label")
+                local currentText = initialText
+                local paragraph = container:AddParagraph({
+                    Title = initialText,
+                    Content = controlConfig.Desc or ""
+                })
+                local metadata = FluentRegisterOption(initialText, {
+                    type = "textlabel",
+                    text = currentText,
+                    value = currentText,
+                    Page_Name = pageName,
+                    Section_Name = sectionName
+                })
+                local function setText(value)
+                    currentText = tostring(value or "")
+                    metadata.text = currentText
+                    metadata.value = currentText
+                    paragraph:SetTitle(currentText)
+                end
+                local control = {
+                    SetText = function(first, second)
+                        setText(second ~= nil and second or first)
+                    end
+                }
+                metadata.FunctionCreate = {
+                    GetText = function() return currentText end,
+                    SetText = setText
+                }
+                return control
+            end
+
+            -- CreateBind do hub antigo usava o nome de uma ScreenGui antiga.
+            -- O Fluent ja tem o LeftControl configurado como MinimizeKey.
+            function section.CreateBind(controlConfig, callback)
+                return nil
+            end
+
+            function section.CreateBox(controlConfig, callback)
+                controlConfig = controlConfig or {}
+                local title = tostring(controlConfig.Title or "Input")
+                local initialValue = controlConfig.Default == nil and "" or tostring(controlConfig.Default)
+                local ready = false
+                local metadata = FluentRegisterOption(title, {
+                    type = "box",
+                    value = initialValue,
+                    Page_Name = pageName,
+                    Section_Name = sectionName
+                })
+                local id = FluentNextId("Input", title)
+                local widget = container:AddInput(id, {
+                    Title = title,
+                    Description = controlConfig.Desc or "",
+                    Default = initialValue,
+                    Placeholder = controlConfig.Placeholder or "",
+                    Numeric = controlConfig.Number == true,
+                    Finished = false,
+                    Callback = function(value)
+                        metadata.value = tostring(value or "")
+                        if ready and type(callback) == "function" then
+                            callback(tostring(value or ""))
+                        end
+                    end
+                })
+                ready = true
+                local control = FluentCreateControlProxy(widget)
+                metadata.FunctionCreate = {
+                    SetValue = function(value) widget:SetValue(tostring(value or "")) end
+                }
+                return control
+            end
+
+            return section
+        end
+
+        return page
+    end
+
+    return FluentMainAdapter
+end
+
+function A.CreateNoti(config)
+    config = config or {}
+    pcall(function()
+        Fluent:Notify({
+            Title = tostring(config.Title or "Banana Cat Hub"),
+            Content = tostring(config.Desc or config.Content or ""),
+            SubContent = config.SubContent,
+            Duration = tonumber(config.ShowTime or config.Duration) or 5
+        })
+    end)
+end
+
+-- O Fluent ja usa LeftControl como MinimizeKey. O atalho antigo do Banana
+-- procurava uma ScreenGui chamada "Nousigi Hub GUI", que nao existe no Fluent.
+function A.CreateBind(config, callback)
+    return nil
+end
+
+Main = guardUI(A.CreateMain({ Title = "Blox Fruit", Desc = " - Blox Fruit" }), "Main")
 PageShop = Main.CreatePage({ Page_Name = "Shop", Page_Title = "Shop" })
 getgenv().Options = A.Options
 SectionShopMisc = PageShop.CreateSection("Misc Shop")
@@ -21956,6 +21658,25 @@ a.CreateBind({ Title = "Toggle GUI", Key = Enum.KeyCode.LeftControl }, function(
 		end
 	end
 end)
+spawn(function()
+	pcall(function()
+		if not (Settings["Auto Load Script"] and getgenv().Key) then
+			repeat
+				wait()
+			until Settings["Auto Load Script"] and getgenv().Key
+		end
+		local T = if syn then syn.queue_on_teleport else queue_on_teleport
+		if not T then
+			return
+		end
+		T(
+			string.format(
+				' repeat wait() until game:IsLoaded()\10 getgenv().Key = %q\10 getgenv().__BANANA_SCRIPT_ROUTE = "bf_main"\10 return loadstring(game:HttpGet("https://banana-hub.xyz/loader/banana.lua"))()\10 ',
+				getgenv().Key
+			)
+		)
+	end)
+end)
 loadstring(
 	'local MT = getrawmetatable(game)\10local OldNameCall = MT.__namecall\10setreadonly(MT, false)\10MT.__namecall = newcclosure(function(self, ...)\10 local Method = getnamecallmethod()\10 local Args = { ... }\10 if\10 Method == "FireServer"\10 and self.Name == "RemoteEvent"\10 and AimPos\10 and tostring(AimPos.X) ~= "nan"\10 and (\10 Settings["Auto Event Prehistoric Island"]\10 or Settings["Kill players When complete Trial"]\10 or Settings["Auto Quest Dragon Hunter"]\10 or Settings["Auto Quest Dojo Trainer"]\10 or Settings["Farm Mastery"]\10 or Settings["Auto Attack Leviathan"]\10 or Settings["Auto Sea Event"]\10 or Settings["Auto Upgrade Race V2-V3"]\10 or Settings["Auto Trial"]\10 or Settings["Auto Aimbot"]\10 or Settings["Auto Shipwright"]\10 )\10 then\10 if #Args == 1 and typeof(Args[1]) == "Vector3" then\10 Args[1] = AimPos.Position\10 end\10 if #Args == 1 and typeof(Args[1]) == "CFrame" then\10 Args[1] = AimPos\10 end\10 end\10 return OldNameCall(self, unpack(Args))\10end)\10setreadonly(MT, true)\10'
 )()
@@ -22103,17 +21824,48 @@ if not getgenv().BananaCatMainLoop then
 		end
 	end)
 end
+-- ============================================================================
+-- FLUENT ADDONS / CONFIGURACOES
+-- Os configs do Banana Cat continuam no arquivo original do hub. O SaveManager
+-- do Fluent salva separadamente os estados e a aparencia da interface Fluent.
+-- ============================================================================
+local FluentSettingsTab = Window:AddTab({ Title = "Fluent Settings", Icon = "settings" })
+
+if SaveManager then
+    pcall(function()
+        SaveManager:SetLibrary(Fluent)
+        SaveManager:IgnoreThemeSettings()
+        SaveManager:SetIgnoreIndexes({})
+        SaveManager:SetFolder("BananaCatHub/Fluent/Configs")
+        SaveManager:BuildConfigSection(FluentSettingsTab)
+    end)
+end
+
+if InterfaceManager then
+    pcall(function()
+        InterfaceManager:SetLibrary(Fluent)
+        InterfaceManager:SetFolder("BananaCatHub/Fluent")
+        InterfaceManager:BuildInterfaceSection(FluentSettingsTab)
+    end)
+end
+
+pcall(function()
+    Window:SelectTab(1)
+end)
+
+pcall(function()
+    Fluent:Notify({
+        Title = "Banana Cat Hub",
+        Content = "Interface Fluent carregada.",
+        Duration = 6
+    })
+end)
+
+if SaveManager then
+    pcall(function()
+        SaveManager:LoadAutoloadConfig()
+    end)
+end
+
+getgenv().__BF_RESULT = Window
 getgenv().__BF_LOADED = true
-
-end -- Banana Cat Hub backend
-
-----------------------------------------------------------------
--- Final
-----------------------------------------------------------------
-Window:SelectTab(1)
-
-Fluent:Notify({
-	Title = "W-AZURE V3",
-	Content = "Loaded successfully! by jane doe sigma",
-	Duration = 5,
-})

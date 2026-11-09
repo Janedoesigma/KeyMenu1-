@@ -524,7 +524,7 @@ function A.CreateMain(config)
         Title = "W-azure v3 | Fan version",
         SubTitle = "Blox Fruits | https://discord.gg/4uu5PGWjuE",
         TabWidth = 155,
-        Size = UDim2.fromOffset(620, 520),
+        Size = UDim2.fromOffset(490, 475),
         Acrylic = false,
         Theme = "Dark",
         MinimizeKey = Enum.KeyCode.LeftControl

@@ -62,13 +62,20 @@ Tabs.Config:AddDropdown("Team", { Title = "Team", Values = { "Pirates", "Marines
 Tabs.Config:AddDropdown("Weapon", { Title = "Arma de farm", Values = { "Melee", "Sword" }, Default = "Melee" })
 Tabs.Config:AddDropdown("Goals", {
     Title = "Itens do kaitun", Description = "O que o kaitun vai buscar",
-    Values = { "Saber", "Godhuman", "Skull Guitar", "Race V2", "Race V3", "Bartilo" }, Multi = true,
-    Default = { "Saber", "Godhuman", "Skull Guitar", "Race V2", "Race V3", "Bartilo" } })
+    Values = { "Saber", "Godhuman", "Skull Guitar", "Race V2", "Race V3", "Bartilo", "Cursed Dual Katana", "Sword Bosses", "Special Bosses", "Dough King" }, Multi = true,
+    Default = { "Saber", "Godhuman", "Skull Guitar", "Race V2", "Race V3", "Bartilo", "Cursed Dual Katana", "Sword Bosses", "Special Bosses", "Dough King" } })
 Tabs.Config:AddDropdown("Required", {
     Title = "Obrigatorios p/ iniciar Secret Quest",
     Description = "Tire o que voce nao quer esperar (CDK entra na Parte 2)",
     Values = { "Saber", "Godhuman", "Skull Guitar", "Race V3", "Cursed Dual Katana", "Level Max" }, Multi = true,
     Default = { "Saber", "Godhuman", "Skull Guitar", "Race V3" } })
+Tabs.Config:AddDropdown("SwordList", {
+    Title = "Espadas por boss", Description = "Espadas que o kaitun caca quando o boss estiver vivo", Multi = true,
+    Values = { "Shark Saw", "Wardens Sword", "Pole (1st Form)", "Gravity Blade", "Longsword", "Rengoku", "Flail", "Twin Hooks" },
+    Default = { "Shark Saw", "Wardens Sword", "Pole (1st Form)", "Gravity Blade", "Longsword", "Rengoku", "Flail", "Twin Hooks" } })
+Tabs.Config:AddToggle("Redeem", { Title = "Auto Redeem Codes", Default = true })
+Tabs.Config:AddToggle("NoAnim", { Title = "No Animation", Default = false })
+Tabs.Config:AddToggle("Gacha", { Title = "Auto Random Fruit (Gacha)", Default = false })
 Tabs.Config:AddToggle("HopMoon", { Title = "Hop procurando lua cheia (Skull Guitar)", Default = true })
 Tabs.Config:AddToggle("LowGfx", { Title = "Low Graphics", Default = true })
 Tabs.Config:AddToggle("WhiteScreen", { Title = "White Screen (desliga render 3D)", Default = false })
@@ -84,7 +91,11 @@ InterfaceManager:BuildInterfaceSection(Tabs.Settings)
 SaveManager:BuildConfigSection(Tabs.Settings)
 Window:SelectTab(1)
 
-local function SetP(p, t, d) pcall(function() p:SetTitle(t) end) pcall(function() p:SetDesc(d) end) end
+local function SetP(p, t, d)
+    pcall(function() p:SetTitle(t) end)
+    local ok = pcall(function() p:SetDesc(d) end)
+    if not ok then pcall(function() p.DescLabel.Text = d end) end
+end
 
 --==============================================================
 -- Estado / utilitarios
@@ -161,8 +172,10 @@ local function InvNames()
 end
 local function Has(name)
     if HasTool(name) then return true end
-    if CheckItem(name) then return true end
-    return InvNames()[name] == true
+    return Cache("has:" .. name, 3, function()
+        if CheckItem(name) then return true end
+        return InvNames()[name] == true
+    end) == true
 end
 local function GetMaterial(name)
     if not IRS then return 0 end
@@ -245,6 +258,7 @@ local function Goto(t, hover, snap)
     local pos = typeof(t) == "CFrame" and t.Position or t
     pos = pos + Vector3.new(0, hover or 0, 0)
     h.Sit = false
+    if Move.root ~= r then StopTween(); Move.root = r end
     local d = (r.Position - pos).Magnitude
     if d <= 6 or (snap and d <= snap) then StopTween(); r.CFrame = CFrame.new(pos); return d <= 6 or true end
     if d > 600 and tick() - Move.lastPortal > 3 then
@@ -259,10 +273,10 @@ local function Goto(t, hover, snap)
             return false
         end
     end
-    if Move.tw and Move.goal and (Move.goal - pos).Magnitude < 8 then return false end
+    if Move.tw and Move.goal and Move.tw.PlaybackState == Enum.PlaybackState.Playing and (Move.goal - pos).Magnitude < 8 then return false end
     StopTween()
     Move.goal = pos
-    local speed = d < 250 and 280 or d < 500 and 255 or d < 1000 and 235 or 200
+    local speed = 150
     Move.tw = TweenService:Create(r, TweenInfo.new(d / speed, Enum.EasingStyle.Linear), { CFrame = CFrame.new(pos) })
     Move.tw:Play()
     return false
@@ -296,6 +310,14 @@ end)
 --==============================================================
 -- Combate
 --==============================================================
+-- Bug morte: ao respawnar, descarta o tween/estado do personagem antigo
+LP.CharacterAdded:Connect(function()
+    StopTween()
+    Move.root = nil
+    Move.lastPortal = 0
+    task.defer(function() for k in pairs(_c) do _c[k] = nil end end)
+end)
+
 local RE_Attack = RS.Modules.Net["RE/RegisterAttack"]
 local RE_Hit = RS.Modules.Net["RE/RegisterHit"]
 local capR, capId
@@ -813,6 +835,7 @@ end
 --==============================================================
 -- Saber / Bartilo / Race / Sea unlocks / Skull Guitar
 --==============================================================
+local Ext = {}
 local flag = { abandoned = false, swanSeen = false, swanKilled = false, ripBegun = false, humanStage = 0, minkChests = 0 }
 
 local function SaberStage()
@@ -960,7 +983,7 @@ local function RaceV3Stage()
             if Near(chest.WorldPivot.Position, 10) then flag.minkChests += 1 end
         end
     else
-        SetSub("Fishman V3 entra na Parte 2")
+        if Ext.Fishman then Ext.Fishman() end
     end
 end
 
@@ -1056,6 +1079,598 @@ end
 --==============================================================
 -- Itens / progresso
 --==============================================================
+--==============================================================
+-- PARTE 2: Elite Hunter / Yama / Tushita / CDK
+--==============================================================
+local cdk = { trialAt = 0, eliteAt = 0, attempts = 0, bonesAt = 0, loadAt = 0, hopAt = 0 }
+
+local function SwordMastery(name)
+    local t = HasTool(name)
+    if not t then
+        if tick() - cdk.loadAt > 5 then
+            cdk.loadAt = tick()
+            pcall(function() CommF:InvokeServer("LoadItem", name, { "Sword" }) end)
+        end
+        return 0
+    end
+    local lv = t:FindFirstChild("Level")
+    return lv and lv.Value or 0
+end
+local function ResetChar() local _, h = Char(); if h then h.Health = 0 end end
+local function ElitePro()
+    return tonumber(Cache("elite", 15, function() return CommF:InvokeServer("EliteHunter", "Progress") end)) or 0
+end
+local function GetElite()
+    for _, n in ipairs({ "Diablo", "Deandre", "Urban", "Tyrant of the Skies" }) do
+        local e = workspace.Enemies:FindFirstChild(n) or RS:FindFirstChild(n)
+        local hum = e and e:FindFirstChild("Humanoid")
+        if hum and hum.Health > 0 then return e end
+    end
+end
+local function NearestEnemyWithin(range, pattern)
+    local _, _, r = Char()
+    if not r then return end
+    local best, bd
+    for _, v in ipairs(workspace.Enemies:GetChildren()) do
+        local hum, hrp = v:FindFirstChildOfClass("Humanoid"), v:FindFirstChild("HumanoidRootPart")
+        if hum and hrp and hum.Health > 0 and (not pattern or v.Name:find(pattern)) then
+            local d = (hrp.Position - r.Position).Magnitude
+            if d <= range and (not bd or d < bd) then best, bd = v, d end
+        end
+    end
+    return best
+end
+local function Engage(e, hover)
+    local hrp = e:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    Goto(hrp.Position, hover or 25, 200)
+    local _, _, r = Char()
+    if r and (r.Position - hrp.Position).Magnitude < 60 then EquipWeapon(); BringMob(e.Name); Attack() end
+end
+local function StartTrial(t)
+    if tick() - cdk.trialAt > 3 then
+        cdk.trialAt = tick()
+        pcall(function() CommF:InvokeServer("CDKQuest", "StartTrial", t) end)
+    end
+end
+
+local function EliteStage()
+    local e = GetElite()
+    if not e then return false end
+    SetFarm("Elite Hunter", e.Name)
+    if tostring(Q.cur):find(e.Name, 1, true) then
+        Farm({ e.Name }, 30)
+    elseif tick() - cdk.eliteAt > 3 then
+        cdk.eliteAt = tick()
+        pcall(function() CommF:InvokeServer("EliteHunter") end)
+    end
+    return true
+end
+
+local function YamaStage()
+    SetFarm("Yama", "Abrindo katana selada (" .. ElitePro() .. "/30 elites)")
+    local wf = workspace.Map:FindFirstChild("Waterfall")
+    local sk = wf and wf:FindFirstChild("SealedKatana")
+    if not sk then
+        local fi = RS:FindFirstChild("FakeIslands")
+        local w = fi and fi:FindFirstChild("Waterfall")
+        if w then Goto(w:GetPivot().Position, 0) end
+        return true
+    end
+    local hb = sk:FindFirstChild("Hitbox")
+    if not hb then return true end
+    if not Near(hb.Position, 30) then Goto(hb.Position, 3); return true end
+    pcall(fireclickdetector, hb.ClickDetector)
+    return true
+end
+
+local function TushitaStage()
+    SetFarm("Tushita", "")
+    local p = Cache("tp", 2, function() return CommF:InvokeServer("TushitaProgress") end)
+    if type(p) ~= "table" then return false end
+    if not p.OpenedDoor then
+        if FindMob({ "rip_indra True Form" }) then
+            if not HasTool("Holy Torch") then
+                SetSub("Pegando Holy Torch")
+                local ok, hb = pcall(function() return workspace.Map.Waterfall.SecretRoom.Room.Door.Door.Hitbox end)
+                if ok and hb then Goto(hb.Position, 2) end
+                return true
+            end
+            SetSub("Acendendo tochas")
+            local spot = Vector3.new(5714, 20, 256)
+            if not Near(spot, 15) then Goto(spot); return true end
+            for i = 1, 5 do pcall(function() CommF:InvokeServer("TushitaProgress", "Torch", i) end) end
+            return true
+        end
+        SetSub("Aguardando rip_indra True Form")
+    else
+        if FindMob({ "Longma" }) then
+            SetSub("Longma"); Farm({ "Longma" }, 30); return true
+        end
+        SetSub("Aguardando Longma")
+    end
+    if tick() - cdk.hopAt > 120 then cdk.hopAt = tick(); Hop() end
+    return false
+end
+
+local function CDKStage()
+    if not Has("Yama") or not Has("Tushita") then return false end
+    if not Travel(3) then SetFarm("CDK", "Indo para Sea 3"); return true end
+    local ty, ya = SwordMastery("Tushita"), SwordMastery("Yama")
+    if ty < 350 or ya < 350 then
+        SetFarm("CDK - Treino", ("Tushita %d/350 | Yama %d/350"):format(ty, ya))
+        WeaponOverride = ty < 350 and "Tushita" or "Yama"
+        FarmBones()
+        return true
+    end
+    SetFarm("Cursed Dual Katana", "")
+    local c, h, r = Char()
+    if not c then return true end
+    local q = Cache("cdkq", 1, function() return CommF:InvokeServer("CDKQuest", "Progress") end)
+    if type(q) ~= "table" then return true end
+    if Cache("cdkdoor", 4, function() return CommF:InvokeServer("CDKQuest", "OpenDoor") end) == "can" then
+        pcall(function() CommF:InvokeServer("CDKQuest", "OpenDoor", true) end)
+    end
+    local turtle = workspace.Map:FindFirstChild("Turtle")
+    local cursed = turtle and turtle:FindFirstChild("Cursed")
+
+    if cursed and cursed:FindFirstChild("Breakable") then
+        SetSub("Abrindo porta do CDK")
+        local b = cursed.Breakable
+        Goto(b.Position, 3)
+        if Near(b.Position, 15) then
+            pcall(function() CommF:InvokeServer("CDKQuest", "OpenDoor") end)
+            pcall(function() CommF:InvokeServer("CDKQuest", "OpenDoor", true) end)
+            pcall(function() b:Destroy() end)
+        end
+        return true
+    end
+    if q.Good == 4 and q.Evil == 4 then
+        SetSub("Queimando pedestais (final)")
+        local p3 = cursed and cursed:FindFirstChild("Pedestal3")
+        local pr = p3 and p3:FindFirstChild("ProximityPrompt")
+        if pr and pr.Enabled then
+            Goto(p3.Position, 3)
+            if Near(p3.Position, 12) then pcall(fireproximityprompt, pr); task.wait(1); ResetChar(); task.wait(5) end
+        else
+            local spot = Vector3.new(-12341, 603, -6550)
+            Goto(spot)
+            if Near(spot, 15) then
+                cdk.attempts += 1
+                task.wait(3); ResetChar(); task.wait(3)
+                if cdk.attempts > 5 then cdk.attempts = 0; Hop() end
+            end
+        end
+        return true
+    end
+    if q.Good == 3 or q.Evil == 3 then
+        SetSub("Queimando pedestais")
+        for i = 1, 3 do
+            local pd = cursed and cursed:FindFirstChild("Pedestal" .. i)
+            local pr = pd and pd:FindFirstChild("ProximityPrompt")
+            if pr and pr.Enabled then
+                Goto(pd.Position, 3)
+                if Near(pd.Position, 8) then pcall(fireproximityprompt, pr); task.wait(3); ResetChar(); task.wait(4) end
+                return true
+            end
+        end
+        return true
+    end
+
+    local ev, gd = q.Evil, q.Good
+    if ev == 0 or ev == -3 then
+        StartTrial("Evil")
+        SetSub("Trial Evil 1: Mythological Pirate")
+        local p = FindMob({ "Mythological Pirate" })
+        if p then Goto(p.HumanoidRootPart.Position + Vector3.new(5, 0, 0), 0) else Goto(Vector3.new(-13239, 520, -6813)) end
+        return true
+    elseif ev == 1 or ev == -4 then
+        StartTrial("Evil")
+        local qh = LP:FindFirstChild("QuestHaze")
+        if qh then
+            for _, v in ipairs(qh:GetChildren()) do
+                if v.Value > 0 then
+                    SetSub("Haze: " .. v.Name .. " (" .. v.Value .. ")")
+                    local sf = RS:FindFirstChild("FortBuilderReplicatedSpawnPositionsFolder")
+                    local sp = sf and sf:FindFirstChild(v.Name)
+                    if sp and not FindMob({ v.Name }) and LP:DistanceFromCharacter(sp:GetPivot().Position) >= 600 then
+                        Goto(sp:GetPivot().Position, 25)
+                    else
+                        Farm({ v.Name }, 25)
+                    end
+                    break
+                end
+            end
+        end
+        return true
+    elseif ev == 2 or ev == -5 then
+        StartTrial("Evil")
+        local sr = FindMob({ "Soul Reaper" })
+        local hd = workspace.Map:FindFirstChild("HellDimension")
+        if hd then
+            for i = 1, 3 do
+                local t = hd:FindFirstChild("Torch" .. i)
+                local pr = t and t:FindFirstChild("ProximityPrompt")
+                if pr and pr.Enabled then
+                    SetSub("Hell: tocha " .. i .. "/3")
+                    local e = NearestEnemyWithin(300)
+                    if e then Engage(e, 25)
+                    else
+                        Goto(t.Position, 3)
+                        if Near(t.Position, 12) then pcall(fireproximityprompt, pr) end
+                    end
+                    return true
+                end
+            end
+            SetSub("Hell: limpando")
+            local e = NearestEnemyWithin(400)
+            if e then Engage(e, 25) end
+            return true
+        elseif sr then
+            SetSub("Indo ate Soul Reaper")
+            Goto(sr.HumanoidRootPart.Position, 0)
+            return true
+        elseif HasTool("Hallow Essence") then
+            SetSub("Usando Hallow Essence")
+            EquipTool("Hallow Essence")
+            local ok, det = pcall(function() return workspace.Map["Haunted Castle"].Summoner.Detection end)
+            if ok and det then
+                Goto(det.Position, 3)
+                if Near(det.Position, 12) then firetouchinterest(r, det, 1); firetouchinterest(r, det, 0) end
+            end
+            return true
+        else
+            if GetMaterial("Bones") >= 50 and tick() - cdk.bonesAt > 1 then
+                cdk.bonesAt = tick()
+                pcall(function() CommF:InvokeServer("Bones", "Buy", 1, 1) end)
+            end
+            SetSub("Bones p/ Hallow Essence (" .. GetMaterial("Bones") .. ")")
+            FarmBones()
+            return true
+        end
+    elseif gd == 0 or gd == -3 then
+        StartTrial("Good")
+        SetSub("Trial Good 1: barcos")
+        for _, pos in ipairs({ Vector3.new(-9550, 21, 4690), Vector3.new(-6120, 16, -2250), Vector3.new(-9530, 7, -8370) }) do
+            r.CFrame = CFrame.new(pos); task.wait(0.4)
+            for _, n in ipairs(workspace.NPCs:GetChildren()) do
+                if n.Name:find("Boat") then pcall(function() CommF:InvokeServer("CDKQuest", "BoatQuest", n) end) end
+            end
+        end
+        return true
+    elseif gd == 1 or gd == -4 then
+        StartTrial("Good")
+        SetSub("Trial Good 2: objetivo")
+        Goto(Vector3.new(6148, 294, -6741))
+        return true
+    elseif gd == 2 or gd == -5 then
+        StartTrial("Good")
+        local hd = workspace.Map:FindFirstChild("HeavenlyDimension")
+        if hd then
+            local ex = hd:FindFirstChild("Exit")
+            if ex and ex.Color ~= Color3.fromRGB(0, 0, 0) then
+                SetSub("Saindo da dimensao")
+                Goto(ex.Position, 2)
+                firetouchinterest(r, ex, 0); firetouchinterest(r, ex, 1)
+                return true
+            end
+            for i = 1, 3 do
+                local t = hd:FindFirstChild("Torch" .. i)
+                local pr = t and t:FindFirstChild("ProximityPrompt")
+                if pr and pr.Enabled then
+                    SetSub("Heaven: tocha " .. i .. "/3")
+                    local e = NearestEnemyWithin(300)
+                    if e then Engage(e, 25)
+                    else
+                        Goto(t.Position, 3)
+                        if Near(t.Position, 12) then pcall(fireproximityprompt, pr) end
+                    end
+                    return true
+                end
+            end
+            local e = NearestEnemyWithin(400)
+            if e then Engage(e, 25) end
+            return true
+        end
+        if FindMob({ "Cake Queen" }) then SetSub("Cake Queen"); Farm({ "Cake Queen" }, 30)
+        else SetSub("Cake Queen nao spawnou, trocando de server"); Hop() end
+        return true
+    end
+    SetSub("CDK: estado desconhecido")
+    return false
+end
+
+--==============================================================
+-- PARTE 3: Fishman V3 / Sword Bosses / Special Bosses / Dough King / Extras / Watchdog
+--==============================================================
+-- Materiais extras
+MAT[3]["Conjured Cocoa"] = { { "Chocolate Bar Battler", "Cocoa Warrior" }, Vector3.new(620, 78, -12581) }
+MAT_SEA["Conjured Cocoa"] = 3
+
+-- (1) Fishman V3 (Sea Beast)
+local fish = { skillAt = 0, claimAt = 0 }
+local function AutoSkill()
+    local c, h = Char()
+    if not c then return end
+    for _, v in ipairs(LP.Backpack:GetChildren()) do
+        if v:IsA("Tool") and (v.ToolTip == "Melee" or v.ToolTip == "Sword" or v.ToolTip == "Blox Fruit" or v.ToolTip == "Gun") then
+            h:EquipTool(v)
+            for _, k in ipairs({ "Z", "X", "C" }) do
+                VIM:SendKeyEvent(true, k, false, game); VIM:SendKeyEvent(false, k, false, game)
+                task.wait(0.15)
+            end
+            return
+        end
+    end
+end
+local function PirateBoat()
+    for _, v in ipairs(workspace.Enemies:GetChildren()) do
+        if v.Name == "PirateBasic" or v.Name == "PirateBrigade" then
+            local hp = v:FindFirstChild("Health")
+            if hp and hp.Value > 0 and v:FindFirstChild("Engine") then return v end
+        end
+    end
+end
+local function SeaBeast()
+    local sb = workspace:FindFirstChild("SeaBeasts")
+    if not sb then return end
+    for _, v in ipairs(sb:GetChildren()) do
+        local hp = v:FindFirstChild("Health")
+        if v.Name == "SeaBeast1" and hp and hp.Value >= 34500 then return v end
+    end
+end
+local function MyBoat()
+    for _, v in ipairs(workspace.Boats:GetChildren()) do
+        if v:IsA("Model") then
+            local o, hv, e = v:FindFirstChild("Owner"), v:FindFirstChild("Humanoid"), v:FindFirstChild("Engine")
+            if o and hv and e and tostring(o.Value) == LP.Name and hv.Value > 0 and LP:DistanceFromCharacter(e.Position) <= 1750 then return v end
+        end
+    end
+end
+Ext.Fishman = function()
+    SetFarm("Race V3 (Fishman)", "Sea Beast")
+    if tick() - fish.claimAt > 4 then
+        fish.claimAt = tick()
+        pcall(function() CommF:InvokeServer("Wenlocktoad", "3") end)
+    end
+    local c, h, r = Char()
+    if not c then return end
+    local function skills() if tick() - fish.skillAt > 1.5 then fish.skillAt = tick(); AutoSkill() end end
+    local pb, beast = PirateBoat(), SeaBeast()
+    if pb then
+        SetSub("Pirate Boat")
+        Goto(pb.Engine.Position + Vector3.new(0, -20, 0), 0)
+        skills()
+    elseif beast then
+        SetSub("Sea Beast")
+        local hrp = beast:FindFirstChild("HumanoidRootPart")
+        local plane = workspace.Map:FindFirstChild("WaterBase-Plane")
+        if hrp and plane then
+            if math.abs(hrp.Position.Y - plane.Position.Y) <= 175 then
+                Goto(hrp.Position + Vector3.new(0, 300, 50), 0)
+            else
+                Goto(Vector3.new(hrp.Position.X, plane.Position.Y + 200, hrp.Position.Z), 0)
+            end
+        end
+        skills()
+    else
+        local boat = MyBoat()
+        if not boat then
+            SetSub("Comprando barco")
+            local p = Vector3.new(-12.7, 10.3, 2955.2)
+            if not Near(p, 8) then Goto(p) else pcall(function() CommF:InvokeServer("BuyBoat", "PirateBrigade") end) end
+        else
+            local seat = boat:FindFirstChild("VehicleSeat")
+            if seat then
+                SetSub("Levando barco ao ponto de caca")
+                local spot = Vector3.new(28.4, 1.23, 3680)
+                if (seat.Position - spot).Magnitude > 50 then seat.CFrame = CFrame.new(spot + Vector3.new(20, 10, 20))
+                elseif not Near(seat.Position, 50) then Goto(seat.Position) end
+            end
+        end
+    end
+end
+
+-- (2) Sword Bosses
+local SWORD_BOSS = {
+    { "Shark Saw", "The Saw", 1, 100 }, { "Wardens Sword", "Chief Warden", 1, 100 }, { "Pole (1st Form)", "Thunder God", 1, 100 },
+    { "Gravity Blade", "Orbitus", 2, 800 }, { "Longsword", "Diamond", 2, 800 }, { "Rengoku", "Awakened Ice Admiral", 2, 800 },
+    { "Flail", "Smoke Admiral", 2, 0 }, { "Twin Hooks", "Captain Elephant", 3, 0 },
+}
+function SwordTarget()
+    local want = Options.SwordList.Value
+    for _, sw in ipairs(SWORD_BOSS) do
+        if want[sw[1]] and SeaIdx() == sw[3] and Level() >= sw[4] and not Has(sw[1]) and FindMob({ sw[2] }) then return sw end
+    end
+    if want["Rengoku"] and SeaIdx() == 2 and not Has("Rengoku") and (HasTool("Hidden Key") or HasTool("Library Key")) then
+        return { "Rengoku", nil, 2, 0, true }
+    end
+end
+function SwordStage()
+    local sw = Cache("swordT", 1, SwordTarget)
+    if not sw then return false end
+    if sw[5] then
+        local key = HasTool("Hidden Key") and "Hidden Key" or "Library Key"
+        local pos = key == "Hidden Key" and Vector3.new(6572, 296, -6966) or Vector3.new(6377, 297, -6844)
+        SetFarm("Rengoku", "Usando " .. key)
+        Goto(pos, 0)
+        if Near(pos, 8) then EquipTool(key); if key == "Library Key" then pcall(function() CommF:InvokeServer("OpenLibrary") end) end end
+        return true
+    end
+    SetFarm("Sword Boss: " .. sw[1], sw[2])
+    Farm({ sw[2] }, 30)
+    return true
+end
+
+-- (3) Special Bosses
+local SPECIAL = {
+    { "Darkbeard", { "Darkbeard" }, 2, 700 },
+    { "Core", { "Core" }, 2, 700 },
+    { "Beautiful Pirate", { "Beautiful Pirate", "Beautiful Pirates" }, 3, 1500 },
+    { "Katakuri", { "Katakuri" }, 3, 2150 },
+}
+function SpecialTarget()
+    for _, sp in ipairs(SPECIAL) do
+        if SeaIdx() == sp[3] and Level() >= sp[4] and FindMob(sp[2]) then return sp end
+    end
+end
+function SpecialStage()
+    local sp = Cache("specT", 1, SpecialTarget)
+    if not sp then return false end
+    SetFarm("Boss: " .. sp[1], "")
+    Farm(sp[2], 30, sp[1] == "Beautiful Pirate" and Vector3.new(5319, 23, -93) or nil)
+    return true
+end
+
+-- (4) Cake Prince / Dough King / Sweet Chalice
+local CAKE_MOBS = { "Cookie Crafter", "Cake Guard", "Baking Staff", "Head Baker" }
+local function CakeQuest(mob)
+    local qn, id, req
+    for c = 1, 2 do
+        local t = QuestData["CakeQuest" .. c]
+        if t then for i, v2 in pairs(t) do if v2.Name == mob then qn, id, req = "CakeQuest" .. c, i, v2.LevelReq end end end
+    end
+    if not qn or Level() < req then return false end
+    local pos = QuestNpcPos(qn)
+    if not pos then return false end
+    SetSub("Quest " .. mob)
+    Goto(pos, 3)
+    if LP:DistanceFromCharacter(pos) <= 15 and tick() - lastQuestTry > 0.8 then
+        lastQuestTry = tick()
+        pcall(function() CommF:InvokeServer("StartQuest", qn, id) end)
+    end
+    return true
+end
+function KataStage()
+    SetFarm("Cake Prince / Dough King", "")
+    if not Travel(3) then return end
+    local boss = FindMob({ "Dough King", "Cake Prince" })
+    if boss then
+        local hrp = boss:FindFirstChild("HumanoidRootPart")
+        if hrp and LP:DistanceFromCharacter(hrp.Position) >= 1200 then
+            local ok, m = pcall(function() return workspace.Map.CakeLoaf.BigMirror.Main end)
+            if ok and m then SetSub("Entrando pelo espelho"); Goto(m.Position, 0); return end
+        end
+        Farm({ boss.Name }, 17.5)
+        return
+    end
+    if LP:DistanceFromCharacter(Vector3.new(-2132, 70, -12319)) >= 1200 then
+        SetSub("Indo a Cake Land"); Goto(Vector3.new(-2251, 146, -12196)); return
+    end
+    local mob = FindMob(CAKE_MOBS)
+    if mob and Q.cur == "" and CakeQuest(mob.Name) then return end
+    Farm(CAKE_MOBS, 15, Vector3.new(-2132, 70, -12319))
+end
+function ChaliceStage()
+    local boss = FindMob({ "Dough King" })
+    if boss then SetFarm("Boss Dough King", ""); Farm({ "Dough King" }, 17.5); return true end
+    if Has("Sweet Chalice") then
+        local msg = Cache("cps2", 2, function() return CommF:InvokeServer("CakePrinceSpawner") end)
+        if type(msg) == "string" and msg:find("defeat") then KataStage(); return true end
+        return false
+    end
+    if Has("God's Chalice") then
+        SetFarm("God's Chalice", "")
+        local cnt = 0
+        pcall(function()
+            for _, v in ipairs(workspace.Map["Boat Castle"].Summoner:GetChildren()) do
+                if v:IsA("Part") and v.Name == "Part" and v.Color ~= Color3.fromRGB(99, 95, 98) then cnt += 1 end
+            end
+        end)
+        if cnt == 3 then
+            SetSub("Invocando boss")
+            EquipTool("God's Chalice")
+            local _, _, r = Char()
+            local ok, det = pcall(function() return workspace.Map["Boat Castle"].Summoner.Detection end)
+            if ok and det and r then
+                Goto(det.Position, 3)
+                if Near(det.Position, 12) then firetouchinterest(r, det, 1); firetouchinterest(r, det, 0) end
+            end
+        elseif GetMaterial("Conjured Cocoa") >= 10 then
+            pcall(function() CommF:InvokeServer("SweetChaliceNpc") end)
+        else
+            FarmMaterial("Conjured Cocoa")
+        end
+        return true
+    end
+    return false
+end
+-- spawner do Cake Prince
+task.spawn(function()
+    while task.wait(1.5) do
+        if Running() and Goal("Dough King") and SeaIdx() == 3 then pcall(function() CommF:InvokeServer("CakePrinceSpawner") end) end
+    end
+end)
+
+-- (5) Extras: redeem, no animation, gacha
+local CODES = { "EASTEREXP", "BANEXPLOIT", "NOMOREHACKS", "WildDares", "BossBuild", "GetPranked", "EARN_FRUITS", "Sub2UncleKizaru",
+    "FIGHT4FRUIT", "kittgaming", "TRIPLEABUSE", "Sub2CaptainMaui", "Sub2Fer999", "Enyu_is_Pro", "Magicbus", "JCWK", "Starcodeheo",
+    "Bluxxy", "SUB2GAMERROBOT_EXP1", "Sub2NoobMaster123", "Sub2Daigrock", "Axiore", "TantaiGaming", "StrawHatMaine",
+    "Sub2OfficialNoobie", "TheGreatAce", "SEATROLLIN", "24NOADMIN", "ADMIN_TROLL", "NEWTROLL", "SECRET_ADMIN", "staffbattle",
+    "NOEXPLOIT", "NOOB2ADMIN", "CODESLIDE", "fruitconcepts", "fudd10", "fudd10_V2", "Chandler", "BIGNEWS", "KITT_RESET",
+    "SUB2GAMERROBOT_RESET1" }
+local redeemed = false
+task.spawn(function()
+    while task.wait(3) do
+        if Running() and Options.Redeem.Value and not redeemed then
+            redeemed = true
+            for _, code in ipairs(CODES) do
+                pcall(function() RS.Remotes.Redeem:InvokeServer(code) end)
+                task.wait(0.7)
+            end
+        end
+    end
+end)
+task.spawn(function()
+    while task.wait(3) do
+        if Running() and Options.NoAnim.Value then
+            pcall(function()
+                local hum = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+                if hum then for _, t in ipairs(hum:GetPlayingAnimationTracks()) do t:Stop(0) end end
+            end)
+        end
+    end
+end)
+task.spawn(function()
+    local rf
+    while task.wait(5) do
+        if Running() and Options.Gacha.Value then
+            pcall(function()
+                rf = rf or RS.Modules.Net:WaitForChild("RF/GachaNetworkRF", 10)
+                if not rf then return end
+                local res = rf:InvokeServer({ SpokeNPC = "Blox Fruit Gacha", Context = "Check", BoxName = "ZiolesGacha" })
+                if typeof(res) == "table" and res.RequirementsMet then
+                    rf:InvokeServer({ SpokeNPC = "Blox Fruit Gacha", Context = "Purchase", BoxName = "ZiolesGacha" })
+                end
+            end)
+        end
+    end
+end)
+
+-- (6) Watchdog anti-travamento
+local wd = { pos = nil, t = tick(), last = "", did = false }
+task.spawn(function()
+    while task.wait(5) do
+        if Running() and State.Main ~= "Secret Quest" then
+            local _, _, r = Char()
+            if r then
+                local key = State.Main .. "|" .. State.Sub
+                if not wd.pos or (r.Position - wd.pos).Magnitude > 4 or key ~= wd.last then
+                    wd.pos, wd.t, wd.last, wd.did = r.Position, tick(), key, false
+                else
+                    local s = tostring(State.Sub):lower()
+                    local waiting = s:find("aguardando") or s:find("esperando") or s:find("viajando") or s:find("preparando") or s:find("carregando")
+                    local idle = tick() - wd.t
+                    if not waiting then
+                        if idle > 90 and not wd.did then wd.did = true; SetSub("Watchdog: reset do personagem"); ResetChar() end
+                        if idle > 300 then wd.t = tick(); Hop() end
+                    end
+                end
+            end
+        end
+    end
+end)
+
 local ITEM_CHECKS = {
     { "Godhuman", function() return MeleeHas("Godhuman") end },
     { "Saber", function() return Has("Saber") end },
@@ -1071,15 +1686,22 @@ local ITEM_CHECKS = {
     { "Race V3+", function() local g = GetRaceGrade(); return g == "V3" or g == "V4" end },
 }
 local ItemState = {}
-local function RefreshItems()
-    local lines = {}
+local ItemsText = "Carregando itens..."
+local lastItems = 0
+local function RefreshItems(force)
+    if not force and tick() - lastItems < 3 then return ItemsText end
+    lastItems = tick()
+    local lines, row = {}, {}
     for _, it in ipairs(ITEM_CHECKS) do
         local ok, v = pcall(it[2])
-        v = ok and v or false
+        v = (ok and v) and true or false
         ItemState[it[1]] = v
-        table.insert(lines, (v and "✅ " or "❌ ") .. it[1])
+        table.insert(row, (v and "🟢 " or "🔴 ") .. it[1])
+        if #row == 2 then table.insert(lines, table.concat(row, "   |   ")); row = {} end
     end
-    return table.concat(lines, "\n")
+    if #row > 0 then table.insert(lines, table.concat(row, "   |   ")) end
+    ItemsText = table.concat(lines, "\n")
+    return ItemsText
 end
 
 local function RequiredDone()
@@ -1166,12 +1788,20 @@ local Stages = {
     { "RaceV2", function() return Goal("Race V2") and Level() >= 850 and Beli() >= 500000 and GetRaceGrade() == "V1" and Has("Warrior Helmet") end, RaceV2Stage },
     { "RaceV3", function() return Goal("Race V3") and Level() >= 1000 and Beli() >= 2000000 and GetRaceGrade() == "V2" and SwanKilled() end, RaceV3Stage },
     { "Sea3", function() return Level() >= 1500 and SeaIdx() == 2 end, Sea3Stage },
+    { "Sword", function() return Goal("Sword Bosses") and Cache("swordT", 1, SwordTarget) ~= nil end, SwordStage, true },
+    { "Special", function() return Goal("Special Bosses") and Cache("specT", 1, SpecialTarget) ~= nil end, SpecialStage, true },
+    { "Chalice", function() return Goal("Dough King") and SeaIdx() == 3 and (Has("Sweet Chalice") or Has("God's Chalice") or FindMob({ "Dough King" }) ~= nil) end, ChaliceStage, true },
+    { "CDK", function() return Goal("Cursed Dual Katana") and Level() >= 2200 and not Has("Cursed Dual Katana") end, CDKStage, true },
+    { "Yama", function() return Goal("Cursed Dual Katana") and SeaIdx() == 3 and not Has("Yama") and ElitePro() >= 30 end, YamaStage, true },
+    { "Tushita", function() return Goal("Cursed Dual Katana") and SeaIdx() == 3 and Level() >= 2000 and not Has("Tushita") end, TushitaStage, true },
+    { "Elite", function() return Goal("Cursed Dual Katana") and SeaIdx() == 3 and not Has("Yama") and ElitePro() < 30 end, EliteStage, true },
     { "Guitar", function() return Goal("Skull Guitar") and Level() >= 2300 and SeaIdx() ~= 1 and not Has("Skull Guitar") end, GuitarStage },
 }
 
 local function Tick()
     if not Char() then SetSub("Aguardando respawn"); return end
     if not LP.Team then pcall(function() CommF:InvokeServer("SetTeam", Options.Team.Value) end); return end
+    WeaponOverride = nil
     RefreshItems()
     if Options.AutoSecret.Value and RequiredDone() then
         SecretStage(); return
@@ -1194,7 +1824,9 @@ local function Tick()
     -- fallback: level farm (Godhuman faltando fragmentos tambem passa aqui)
     if Level() < MaxLevel then LevelFarm()
     else
-        if Goal("Godhuman") and CanDungeon() and Frags() < 5000 then DungeonTick() else SetFarm("Kaitun completo", "Aguardando") end
+        if Goal("Godhuman") and CanDungeon() and Frags() < 5000 then DungeonTick()
+        elseif Goal("Dough King") then KataStage()
+        else SetFarm("Kaitun completo", "Aguardando") end
     end
 end
 
@@ -1321,10 +1953,18 @@ end)
 --==============================================================
 -- Atualizacao da UI
 --==============================================================
+-- produtor de itens (thread propria: nunca trava a UI)
+task.spawn(function()
+    while true do
+        pcall(RefreshItems, true)
+        task.wait(3)
+    end
+end)
 task.spawn(function()
     while task.wait(1) do
-        SetP(StatusP, "Status", "Farm Principal: " .. State.Main .. "\nSub Farm: " .. State.Sub)
-        pcall(function() SetP(ItemsP, "Itens da conta", RefreshItems()) end)
+        pcall(function() SetP(StatusP, "Status", "Farm Principal: " .. State.Main .. "\nSub Farm: " .. State.Sub) end)
+        pcall(function() SetP(ItemsP, "Itens da conta", ItemsText) end)
+        pcall(function()
         local done, total, missing, HE = SecretInfo()
         if done then
             local nxt = {}
@@ -1335,6 +1975,7 @@ task.spawn(function()
         else
             SetP(SecretP, "Secret Quest", Secret.err or (RequiredDone() and "Preparando..." or "Aguardando kaitun principal terminar..."))
         end
+        end)
     end
 end)
 
